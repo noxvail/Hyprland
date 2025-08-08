@@ -34,4 +34,14 @@ namespace NContentType {
             default: return DRM_MODE_CONTENT_TYPE_NO_DATA;
         }
     }
+
+    const char* toString(eContentType contentType) {
+        switch (contentType) {
+            case CONTENT_TYPE_NONE: return "none";
+            case CONTENT_TYPE_PHOTO: return "photo";
+            case CONTENT_TYPE_VIDEO: return "video";
+            case CONTENT_TYPE_GAME: return "game";
+            default: return "unknown";
+        }
+    }
 }

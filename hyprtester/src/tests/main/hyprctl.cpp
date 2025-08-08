@@ -154,6 +154,22 @@ static bool test() {
         EXPECT(jqProc.exitCode(), 0);
     }
 
+    {
+        NLog::log("{}Testing hyprctl clients contentType formatting", Colors::GREEN);
+        const int BEFORE = Tests::windowCount();
+        auto       kitty  = Tests::spawnKitty();
+        EXPECT(Tests::windowCount(), BEFORE + 1);
+
+        const auto JSON = getFromSocket("j/clients");
+        EXPECT_CONTAINS(JSON, "\"contentType\"");
+
+        const auto TEXT = getFromSocket("/clients");
+        if (std::string{TEXT}.contains("contentType:"))
+            EXPECT_CONTAINS(TEXT, "contentType: ");
+
+        Tests::killAllWindows();
+    }
+
     if (!testGetprop())
         return false;
 
