@@ -54,6 +54,7 @@ using namespace Hyprutils::OS;
 #include "../debug/HyprNotificationOverlay.hpp"
 #include "../render/Renderer.hpp"
 #include "../render/OpenGL.hpp"
+#include "../protocols/types/ContentType.hpp"
 
 #if defined(__DragonFly__) || defined(__FreeBSD__)
 #include <sys/ucred.h>
@@ -257,6 +258,8 @@ std::string CHyprCtl::getWindowData(PHLWINDOW w, eHyprCtlOutputFormat format) {
         return -1;
     };
 
+    const auto CONTENT_TYPE = w->getContentType();
+
     if (format == eHyprCtlOutputFormat::FORMAT_JSON) {
         return std::format(
             R"#({{
@@ -286,6 +289,7 @@ std::string CHyprCtl::getWindowData(PHLWINDOW w, eHyprCtlOutputFormat format) {
     "swallowing": "0x{:x}",
     "focusHistoryID": {},
     "inhibitingIdle": {},
+    "contentType": "{}",
     "xdgTag": "{}",
     "xdgDescription": "{}"
 }},)#",
@@ -295,19 +299,21 @@ std::string CHyprCtl::getWindowData(PHLWINDOW w, eHyprCtlOutputFormat format) {
             (int64_t)w->monitorID(), escapeJSONStrings(w->m_class), escapeJSONStrings(w->m_title), escapeJSONStrings(w->m_initialClass), escapeJSONStrings(w->m_initialTitle),
             w->getPID(), ((int)w->m_isX11 == 1 ? "true" : "false"), (w->m_pinned ? "true" : "false"), (uint8_t)w->m_fullscreenState.internal, (uint8_t)w->m_fullscreenState.client,
             getGroupedData(w, format), getTagsData(w, format), (uintptr_t)w->m_swallowed.get(), getFocusHistoryID(w),
-            (g_pInputManager->isWindowInhibiting(w, false) ? "true" : "false"), escapeJSONStrings(w->xdgTag().value_or("")), escapeJSONStrings(w->xdgDescription().value_or("")));
+            (g_pInputManager->isWindowInhibiting(w, false) ? "true" : "false"), NContentType::toString(CONTENT_TYPE),
+            escapeJSONStrings(w->xdgTag().value_or("")), escapeJSONStrings(w->xdgDescription().value_or("")));
     } else {
         return std::format(
             "Window {:x} -> {}:\n\tmapped: {}\n\thidden: {}\n\tat: {},{}\n\tsize: {},{}\n\tworkspace: {} ({})\n\tfloating: {}\n\tpseudo: {}\n\tmonitor: {}\n\tclass: {}\n\ttitle: "
             "{}\n\tinitialClass: {}\n\tinitialTitle: {}\n\tpid: "
             "{}\n\txwayland: {}\n\tpinned: "
-            "{}\n\tfullscreen: {}\n\tfullscreenClient: {}\n\tgrouped: {}\n\ttags: {}\n\tswallowing: {:x}\n\tfocusHistoryID: {}\n\tinhibitingIdle: {}\n\txdgTag: "
+            "{}\n\tfullscreen: {}\n\tfullscreenClient: {}\n\tgrouped: {}\n\ttags: {}\n\tswallowing: {:x}\n\tfocusHistoryID: {}\n\tinhibitingIdle: {}\n\tcontentType: {}\n\txdgTag: "
             "{}\n\txdgDescription: {}\n\n",
             (uintptr_t)w.get(), w->m_title, (int)w->m_isMapped, (int)w->isHidden(), (int)w->m_realPosition->goal().x, (int)w->m_realPosition->goal().y,
             (int)w->m_realSize->goal().x, (int)w->m_realSize->goal().y, w->m_workspace ? w->workspaceID() : WORKSPACE_INVALID, (!w->m_workspace ? "" : w->m_workspace->m_name),
             (int)w->m_isFloating, (int)w->m_isPseudotiled, (int64_t)w->monitorID(), w->m_class, w->m_title, w->m_initialClass, w->m_initialTitle, w->getPID(), (int)w->m_isX11,
             (int)w->m_pinned, (uint8_t)w->m_fullscreenState.internal, (uint8_t)w->m_fullscreenState.client, getGroupedData(w, format), getTagsData(w, format),
-            (uintptr_t)w->m_swallowed.get(), getFocusHistoryID(w), (int)g_pInputManager->isWindowInhibiting(w, false), w->xdgTag().value_or(""), w->xdgDescription().value_or(""));
+            (uintptr_t)w->m_swallowed.get(), getFocusHistoryID(w), (int)g_pInputManager->isWindowInhibiting(w, false), NContentType::toString(CONTENT_TYPE),
+            w->xdgTag().value_or(""), w->xdgDescription().value_or(""));
     }
 }
 

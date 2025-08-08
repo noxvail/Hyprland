@@ -2,6 +2,7 @@
 
 #include "content-type-v1.hpp"
 #include <cstdint>
+#include <string>
 
 namespace NContentType {
 
@@ -12,7 +13,10 @@ namespace NContentType {
         CONTENT_TYPE_GAME  = 3,
     };
 
-    eContentType fromString(const std::string name);
+    eContentType fromString(const std::string& name);
     eContentType fromWP(wpContentTypeV1Type contentType);
     uint16_t     toDRM(eContentType contentType);
+
+    // Human-readable representation for logs / CLI output
+    const char*  toString(eContentType contentType);
 }

@@ -2,12 +2,13 @@
 #include <drm_mode.h>
 #include <stdexcept>
 #include <format>
+#include <unordered_map>
 
 namespace NContentType {
     static std::unordered_map<std::string, eContentType> const table = {
         {"none", CONTENT_TYPE_NONE}, {"photo", CONTENT_TYPE_PHOTO}, {"video", CONTENT_TYPE_VIDEO}, {"game", CONTENT_TYPE_GAME}};
 
-    eContentType fromString(const std::string name) {
+    eContentType fromString(const std::string& name) {
         auto it = table.find(name);
         if (it != table.end())
             return it->second;
@@ -32,6 +33,16 @@ namespace NContentType {
             case CONTENT_TYPE_VIDEO: return DRM_MODE_CONTENT_TYPE_CINEMA;
             case CONTENT_TYPE_GAME: return DRM_MODE_CONTENT_TYPE_GAME;
             default: return DRM_MODE_CONTENT_TYPE_NO_DATA;
+        }
+    }
+
+    const char* toString(eContentType contentType) {
+        switch (contentType) {
+            case CONTENT_TYPE_NONE: return "none";
+            case CONTENT_TYPE_PHOTO: return "photo";
+            case CONTENT_TYPE_VIDEO: return "video";
+            case CONTENT_TYPE_GAME: return "game";
+            default: return "unknown";
         }
     }
 }
