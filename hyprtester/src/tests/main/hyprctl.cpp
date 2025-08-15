@@ -1,14 +1,10 @@
 #include "tests.hpp"
 #include "../../shared.hpp"
 #include "../../hyprctlCompat.hpp"
-#include <print>
-#include <thread>
-#include <chrono>
 #include <hyprutils/os/Process.hpp>
 #include <hyprutils/memory/WeakPtr.hpp>
-#include <csignal>
-#include <cerrno>
 #include "../shared.hpp"
+#include <regex>
 
 static int ret = 0;
 
@@ -38,11 +34,26 @@ static bool test() {
         const auto JSON = getFromSocket("j/clients");
         EXPECT_CONTAINS(JSON, "\"contentType\"");
 
+        {
+            const std::string jsonStr = std::string{JSON};
+            const std::regex  re(R"CT("contentType"\s*:\s*"([^"]+)")CT");
+            auto              it  = std::sregex_iterator(jsonStr.begin(), jsonStr.end(), re);
+            auto              end = std::sregex_iterator();
+            EXPECT(it == end, false);
+            for (; it != end; ++it) {
+                const std::string value = (*it)[1].str();
+                const bool        valid = value == "none" || value == "photo" || value == "video" || value == "game";
+                EXPECT(valid, true);
+            }
+        }
+
         const auto TEXT = getFromSocket("/clients");
-        if (std::string{TEXT}.contains("contentType:"))
+        if (std::string{TEXT}.contains("contentType:")) {
             EXPECT_CONTAINS(TEXT, "contentType: ");
+        }
 
         Tests::killAllWindows();
+        EXPECT(Tests::windowCount(), BEFORE);
     }
 
     return !ret;
