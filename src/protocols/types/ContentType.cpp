@@ -41,6 +41,7 @@ namespace NContentType {
             case CONTENT_TYPE_PHOTO: return "photo";
             case CONTENT_TYPE_VIDEO: return "video";
             case CONTENT_TYPE_GAME: return "game";
+            default: return "none";
         }
     }
 }
