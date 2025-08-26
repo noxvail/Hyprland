@@ -34,4 +34,12 @@ namespace NContentType {
             default: return DRM_MODE_CONTENT_TYPE_NO_DATA;
         }
     }
+
+    std::string_view toString(eContentType contentType) {
+        for (const auto& pair : table) {
+            if (pair.second == contentType)
+                return pair.first;
+        }
+        return "none";
+    }
 }

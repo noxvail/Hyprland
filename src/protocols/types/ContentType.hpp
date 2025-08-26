@@ -2,6 +2,7 @@
 
 #include "content-type-v1.hpp"
 #include <cstdint>
+#include <string_view>
 
 namespace NContentType {
 
@@ -15,4 +16,5 @@ namespace NContentType {
     eContentType fromString(const std::string name);
     eContentType fromWP(wpContentTypeV1Type contentType);
     uint16_t     toDRM(eContentType contentType);
+    std::string_view toString(eContentType contentType);
 }
