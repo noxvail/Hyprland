@@ -130,13 +130,21 @@ void CSubsurface::checkSiblingDamage() {
 
 void CSubsurface::recheckDamageForSubsurfaces() {
     for (auto const& n : m_children) {
+        const auto SURFACE = n->wlSurface()->resource();
+        if (!SURFACE)
+            continue;
+
+        // already handled by CSubsurface::onCommit in this transaction
+        if (SURFACE->m_current.updated.bits.damage)
+            continue;
+
         const auto COORDS = n->coordsGlobal();
-        g_pHyprRenderer->damageSurface(n->wlSurface()->resource(), COORDS.x, COORDS.y);
+        g_pHyprRenderer->damageSurface(SURFACE, COORDS.x, COORDS.y);
     }
 }
 
 void CSubsurface::onCommit() {
-    // no damaging if it's not visible
+    // no damaging if it's not visibleframes and push refresh above FPS.
     if (!m_windowParent.expired() && (!m_windowParent->m_isMapped || !m_windowParent->m_workspace->m_visible)) {
         m_lastSize = m_wlSurface->resource()->m_current.size;
 
