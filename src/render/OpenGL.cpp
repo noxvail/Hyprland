@@ -1285,11 +1285,13 @@ void CHyprOpenGLImpl::passCMUniforms(WP<CShader> shader, const NColorManagement:
     shader->setUniformFloat(SHADER_SRC_REF_LUMINANCE, imageDescription->value().luminances.reference);
     shader->setUniformFloat(SHADER_DST_REF_LUMINANCE, targetImageDescription->value().luminances.reference);
 
-    const float maxLuminance = needsHDRmod ?
-        imageDescription->value().getTFMaxLuminance(-1) :
-        (imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max : imageDescription->value().luminances.reference);
-    shader->setUniformFloat(SHADER_MAX_LUMINANCE, maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference);
-    shader->setUniformFloat(SHADER_DST_MAX_LUMINANCE, targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000);
+    const float maxLuminance       = needsHDRmod ?
+              imageDescription->value().getTFMaxLuminance(-1) :
+              (imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max : imageDescription->value().luminances.reference);
+    const auto  scaledMaxLuminance = maxLuminance * imageDescription->value().getReferenceWhiteScale(targetImageDescription->value());
+    const auto  dstMaxLuminance    = targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000;
+    shader->setUniformFloat(SHADER_MAX_LUMINANCE, scaledMaxLuminance);
+    shader->setUniformFloat(SHADER_DST_MAX_LUMINANCE, dstMaxLuminance);
     shader->setUniformFloat(SHADER_SDR_SATURATION, needsSDRmod && m_renderData.pMonitor->m_sdrSaturation > 0 ? m_renderData.pMonitor->m_sdrSaturation : 1.0f);
     shader->setUniformFloat(SHADER_SDR_BRIGHTNESS, needsSDRmod && m_renderData.pMonitor->m_sdrBrightness > 0 ? m_renderData.pMonitor->m_sdrBrightness : 1.0f);
     const auto cacheKey = std::make_pair(imageDescription->id(), targetImageDescription->id());
@@ -1424,7 +1426,7 @@ void CHyprOpenGLImpl::renderTextureInternal(SP<CTexture> tex, const CBox& box, c
                    (imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max : imageDescription->value().luminances.reference);
             const auto  dstMaxLuminance = targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000;
 
-            if (maxLuminance >= dstMaxLuminance * 1.01)
+            if (maxLuminance >= dstMaxLuminance * 1.01 || imageDescription->value().needsLuminanceMapping(targetImageDescription->value()))
                 shaderFeatures |= SH_FEAT_TONEMAP;
 
             if (!data.cmBackToSRGB &&
@@ -1440,6 +1442,7 @@ void CHyprOpenGLImpl::renderTextureInternal(SP<CTexture> tex, const CBox& box, c
         shader = getSurfaceShader(shaderFeatures);
 
     shader = useShader(shader);
+    shader->setUniformInt(SHADER_SKIP_CM, skipCM);
 
     if (!skipCM && !usingFinalShader) {
         if (data.cmBackToSRGB)
