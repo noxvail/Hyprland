@@ -194,6 +194,7 @@ namespace NColorManagement {
                 return min == l2.min && max == l2.max && reference == l2.reference;
             }
         } luminances;
+        bool fallbackLuminances = false;
         struct SPCMasteringLuminances {
             float    min = 0;
             uint32_t max = 0;
@@ -208,8 +209,8 @@ namespace NColorManagement {
         bool     operator==(const SImageDescription& d2) const {
             return icc == d2.icc && windowsScRGB == d2.windowsScRGB && transferFunction == d2.transferFunction && transferFunctionPower == d2.transferFunctionPower &&
                 (primariesNameSet == d2.primariesNameSet && (primariesNameSet ? primariesNamed == d2.primariesNamed : primaries == d2.primaries)) &&
-                masteringPrimaries == d2.masteringPrimaries && luminances == d2.luminances && masteringLuminances == d2.masteringLuminances && maxCLL == d2.maxCLL &&
-                maxFALL == d2.maxFALL;
+                masteringPrimaries == d2.masteringPrimaries && luminances == d2.luminances && fallbackLuminances == d2.fallbackLuminances &&
+                masteringLuminances == d2.masteringLuminances && maxCLL == d2.maxCLL && maxFALL == d2.maxFALL;
         }
 
         const SPCPRimaries& getPrimaries() const {
@@ -259,9 +260,9 @@ namespace NColorManagement {
 
         float getTFRefLuminance(int sdrRefLuminance = -1) const {
             switch (transferFunction) {
-                case CM_TRANSFER_FUNCTION_EXT_LINEAR:
                 case CM_TRANSFER_FUNCTION_ST2084_PQ:
                 case CM_TRANSFER_FUNCTION_HLG: return HDR_REF_LUMINANCE;
+                case CM_TRANSFER_FUNCTION_EXT_LINEAR: return sdrRefLuminance >= 0 ? sdrRefLuminance : SDR_REF_LUMINANCE;
                 case CM_TRANSFER_FUNCTION_BT1886: return 100;
                 case CM_TRANSFER_FUNCTION_GAMMA22:
                 case CM_TRANSFER_FUNCTION_GAMMA28:
@@ -275,6 +276,17 @@ namespace NColorManagement {
                 default: return sdrRefLuminance >= 0 ? sdrRefLuminance : SDR_REF_LUMINANCE;
             }
         };
+
+        float getReferenceWhiteScale(const SImageDescription& targetImageDescription) const {
+            if (!fallbackLuminances || transferFunction != CM_TRANSFER_FUNCTION_EXT_LINEAR || luminances.reference == 0)
+                return 1.0f;
+
+            return targetImageDescription.luminances.reference / static_cast<float>(luminances.reference);
+        }
+
+        bool needsLuminanceMapping(const SImageDescription& targetImageDescription) const {
+            return fallbackLuminances && transferFunction == CM_TRANSFER_FUNCTION_EXT_LINEAR && luminances.reference != targetImageDescription.luminances.reference;
+        }
     };
 
     class CImageDescription {
@@ -302,21 +314,24 @@ namespace NColorManagement {
                                                                                             .primariesNameSet = true,
                                                                                             .primariesNamed   = NColorManagement::CM_PRIMARIES_SRGB,
                                                                                             .primaries        = NColorManagement::getPrimaries(NColorManagement::CM_PRIMARIES_SRGB),
-                                                                                            .luminances       = {.min = SDR_MIN_LUMINANCE, .max = 80, .reference = 80}});
+                                                                                            .luminances       = {.min = SDR_MIN_LUMINANCE, .max = 80, .reference = 80},
+                                                                                            .fallbackLuminances = true});
 
     static const auto DEFAULT_HDR_IMAGE_DESCRIPTION = CImageDescription::from(SImageDescription{.transferFunction = NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ,
                                                                                                 .primariesNameSet = true,
                                                                                                 .primariesNamed   = NColorManagement::CM_PRIMARIES_BT2020,
                                                                                                 .primaries  = NColorManagement::getPrimaries(NColorManagement::CM_PRIMARIES_BT2020),
-                                                                                                .luminances = {.min = HDR_MIN_LUMINANCE, .max = 10000, .reference = 203}});
+                                                                                                .luminances = {.min = HDR_MIN_LUMINANCE, .max = 10000, .reference = 203},
+                                                                                                .fallbackLuminances = true});
     ;
     static const auto SCRGB_IMAGE_DESCRIPTION = CImageDescription::from(SImageDescription{
-        .windowsScRGB     = true,
-        .transferFunction = NColorManagement::CM_TRANSFER_FUNCTION_EXT_LINEAR,
-        .primariesNameSet = true,
-        .primariesNamed   = NColorManagement::CM_PRIMARIES_SRGB,
-        .primaries        = NColorPrimaries::BT709,
-        .luminances       = {.reference = 203},
+        .windowsScRGB       = true,
+        .transferFunction   = NColorManagement::CM_TRANSFER_FUNCTION_EXT_LINEAR,
+        .primariesNameSet   = true,
+        .primariesNamed     = NColorManagement::CM_PRIMARIES_SRGB,
+        .primaries          = NColorPrimaries::BT709,
+        .luminances         = {.reference = static_cast<uint32_t>(SDR_REF_LUMINANCE)},
+        .fallbackLuminances = true,
     });
     ;
 
