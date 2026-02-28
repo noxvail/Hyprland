@@ -7,8 +7,10 @@ precision highp float;
 in vec2 v_texcoord;
 uniform samplerExternalOES tex;
 uniform float alpha;
+uniform int skipCM;
 
 #include "rounding.glsl"
+#include "surface_CM.glsl"
 
 uniform int discardOpaque;
 uniform int discardAlpha;
@@ -24,6 +26,9 @@ void main() {
 
     if (discardOpaque == 1 && pixColor[3] * alpha == 1.0)
 	discard;
+
+    if (skipCM == 0)
+        pixColor = doColorManagement(pixColor, sourceTF, targetTF, targetPrimariesXYZ);
 
     if (applyTint == 1) {
 	pixColor[0] = pixColor[0] * tint[0];

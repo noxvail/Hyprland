@@ -511,6 +511,7 @@ CColorManagementParametricCreator::CColorManagementParametricCreator(SP<CWpImage
                 .max       = m_settings.getTFMaxLuminance(),
                 .reference = m_settings.getTFRefLuminance(),
             };
+            m_settings.fallbackLuminances = true;
         }
 
         RESOURCE->m_self     = RESOURCE;
