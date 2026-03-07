@@ -259,9 +259,9 @@ namespace NColorManagement {
 
         float getTFRefLuminance(int sdrRefLuminance = -1) const {
             switch (transferFunction) {
-                case CM_TRANSFER_FUNCTION_EXT_LINEAR:
                 case CM_TRANSFER_FUNCTION_ST2084_PQ:
                 case CM_TRANSFER_FUNCTION_HLG: return HDR_REF_LUMINANCE;
+                case CM_TRANSFER_FUNCTION_EXT_LINEAR: return sdrRefLuminance >= 0 ? sdrRefLuminance : SDR_REF_LUMINANCE;
                 case CM_TRANSFER_FUNCTION_BT1886: return 100;
                 case CM_TRANSFER_FUNCTION_GAMMA22:
                 case CM_TRANSFER_FUNCTION_GAMMA28:
@@ -275,6 +275,17 @@ namespace NColorManagement {
                 default: return sdrRefLuminance >= 0 ? sdrRefLuminance : SDR_REF_LUMINANCE;
             }
         };
+
+        float getReferenceWhiteScale(const SImageDescription& targetImageDescription) const {
+            if (luminances.reference == 0)
+                return 1.0f;
+
+            return targetImageDescription.luminances.reference / static_cast<float>(luminances.reference);
+        }
+
+        bool needsLuminanceMapping(const SImageDescription& targetImageDescription) const {
+            return luminances.reference != targetImageDescription.luminances.reference;
+        }
     };
 
     class CImageDescription {
@@ -316,7 +327,7 @@ namespace NColorManagement {
         .primariesNameSet = true,
         .primariesNamed   = NColorManagement::CM_PRIMARIES_SRGB,
         .primaries        = NColorPrimaries::BT709,
-        .luminances       = {.reference = 203},
+        .luminances       = {.reference = static_cast<uint32_t>(SDR_REF_LUMINANCE)},
     });
     ;
 

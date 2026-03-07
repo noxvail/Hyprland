@@ -40,8 +40,10 @@ const mat3 ICtCpPQInv = mat3(
 // const mat3 ICtCpHLGInv = inverse(ICtCpHLG);
 
 vec4 tonemap(vec4 color, mat3 dstXYZ) {
+    float refScale = dstRefLuminance / srcRefLuminance;
+
     if (maxLuminance < dstMaxLuminance * 1.01)
-        return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color[3]);
+        return vec4(clamp(color.rgb * refScale, vec3(0.0), vec3(dstMaxLuminance)), color[3]);
 
     mat3 toLMS = BT2020toLMS * dstXYZ;
     mat3 fromLMS = inverse(dstXYZ) * LMStoBT2020;
@@ -61,9 +63,6 @@ vec4 tonemap(vec4 color, mat3 dstXYZ) {
     float shoulder = log((luminanceAboveRef / maxExcessLuminance + 1.0) * (M_E - 1.0));
     float mappedHigh = shoulder * (dstMaxLuminance - dstRefLuminance);
     float newLum = clamp(linearPart + mappedHigh, 0.0, dstMaxLuminance);
-
-    // scale src to dst reference
-    float refScale = dstRefLuminance / srcRefLuminance;
 
     return vec4(fromLMS * toLinear(vec4(ICtCpPQInv * ICtCp, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb * HDR_MAX_LUMINANCE * refScale, color[3]); 
 }

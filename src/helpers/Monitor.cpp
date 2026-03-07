@@ -599,12 +599,18 @@ void CMonitor::applyCMType(NCMType::eCMType cmType, NTransferFunction::eTF cmSdr
             break;
         default: UNREACHABLE();
     }
-    if ((m_minLuminance >= 0 || m_maxLuminance >= 0 || m_maxAvgLuminance >= 0) && (cmType == NCMType::CM_HDR || cmType == NCMType::CM_HDR_EDID))
+    if (cmType == NCMType::CM_HDR || cmType == NCMType::CM_HDR_EDID) {
+        const float minLuminance = m_minLuminance >= 0 ? m_minLuminance : m_imageDescription->value().luminances.min;
+        const float maxLuminance = m_maxLuminance >= 0 ? m_maxLuminance : m_imageDescription->value().luminances.max;
+        const float wantedRef    = m_sdrMaxLuminance > 0 ? m_sdrMaxLuminance : m_imageDescription->value().luminances.reference;
+        const float refLuminance = maxLuminance > minLuminance ? std::clamp(wantedRef, minLuminance, maxLuminance) : m_imageDescription->value().luminances.reference;
+
         m_imageDescription = m_imageDescription->with({
-            .min       = m_minLuminance >= 0 ? m_minLuminance : m_imageDescription->value().luminances.min, //
-            .max       = m_maxLuminance >= 0 ? m_maxLuminance : m_imageDescription->value().luminances.max, //
-            .reference = m_imageDescription->value().luminances.reference                                   //
+            .min       = minLuminance,
+            .max       = maxLuminance,
+            .reference = refLuminance,
         });
+    }
 
     if (oldImageDescription != m_imageDescription) {
         if (PROTO::colorManagement)
