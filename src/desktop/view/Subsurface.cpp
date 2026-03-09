@@ -131,6 +131,18 @@ void CSubsurface::checkSiblingDamage() {
 void CSubsurface::recheckDamageForSubsurfaces() {
     for (auto const& n : m_children) {
         const auto COORDS = n->coordsGlobal();
+        const auto SIZE   = n->size();
+
+        const bool GEOMETRYUNCHANGED = n->m_hasLastRecheckGeometry && COORDS.x == n->m_lastRecheckGlobalPos.x && COORDS.y == n->m_lastRecheckGlobalPos.y &&
+            SIZE.x == n->m_lastRecheckGlobalSize.x && SIZE.y == n->m_lastRecheckGlobalSize.y;
+
+        if (GEOMETRYUNCHANGED)
+            continue;
+
+        n->m_lastRecheckGlobalPos   = COORDS;
+        n->m_lastRecheckGlobalSize  = SIZE;
+        n->m_hasLastRecheckGeometry = true;
+
         g_pHyprRenderer->damageSurface(n->wlSurface()->resource(), COORDS.x, COORDS.y);
     }
 }
@@ -194,8 +206,9 @@ void CSubsurface::onNewSubsurface(SP<CWLSubsurfaceResource> pSubsurface) {
 }
 
 void CSubsurface::onMap() {
-    m_lastSize     = m_wlSurface->resource()->m_current.size;
-    m_lastPosition = m_subsurface->m_position;
+    m_lastSize               = m_wlSurface->resource()->m_current.size;
+    m_lastPosition           = m_subsurface->m_position;
+    m_hasLastRecheckGeometry = false;
 
     const auto COORDS = coordsGlobal();
     CBox       box{COORDS, m_lastSize};
@@ -208,6 +221,7 @@ void CSubsurface::onMap() {
 
 void CSubsurface::onUnmap() {
     damageLastArea();
+    m_hasLastRecheckGeometry = false;
 
     if (m_wlSurface->resource() == Desktop::focusState()->surface())
         g_pInputManager->releaseAllMouseButtons();
