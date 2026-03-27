@@ -2521,6 +2521,7 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
     bool       click           = false;
     bool       drag            = false;
     bool       submapUniversal = false;
+    bool       isPerDevice     = false;
     const auto BINDARGS        = command.substr(4);
 
     for (auto const& arg : BINDARGS) {
@@ -2545,6 +2546,7 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
                 release = true;
                 break;
             case 'u': submapUniversal = true; break;
+            case 'k': isPerDevice = true; break;
             default: return "bind: invalid flag";
         }
     }
@@ -2558,13 +2560,14 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
     if (click && drag)
         return "flags c and g are mutually exclusive";
 
-    const int  numbArgs = hasDescription ? 5 : 4;
+    const int  numbArgs = (hasDescription ? 5 : 4) + sc<int>(isPerDevice);
     const auto ARGS     = CVarList(value, numbArgs);
 
-    const int  DESCR_OFFSET = hasDescription ? 1 : 0;
+    const int  DESCR_OFFSET  = hasDescription ? 1 : 0;
+    const int  DEVICE_OFFSET = sc<int>(isPerDevice);
     if ((ARGS.size() < 3 && !mouse) || (ARGS.size() < 3 && mouse))
         return "bind: too few args";
-    else if ((ARGS.size() > sc<size_t>(4) + DESCR_OFFSET && !mouse) || (ARGS.size() > sc<size_t>(3) + DESCR_OFFSET && mouse))
+    else if ((ARGS.size() > sc<size_t>(4) + DESCR_OFFSET + DEVICE_OFFSET && !mouse) || (ARGS.size() > sc<size_t>(3) + DESCR_OFFSET + DEVICE_OFFSET && mouse))
         return "bind: too many args";
 
     std::set<xkb_keysym_t> KEYSYMS;
@@ -2578,16 +2581,24 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
             MODS.insert(xkb_keysym_from_name(splitMod.c_str(), XKB_KEYSYM_CASE_INSENSITIVE));
         }
     }
-    const auto MOD    = g_pKeybindManager->stringToModMask(ARGS[0]);
-    const auto MODSTR = ARGS[0];
+    const auto ARG = [&ARGS](size_t index) {
+        auto it = ARGS.begin();
+        std::advance(it, index);
+        return it == ARGS.end() ? std::string{} : *it;
+    };
 
-    const auto KEY = multiKey ? "" : ARGS[1];
+    const auto MODSTR = ARG(0);
+    const auto MOD    = g_pKeybindManager->stringToModMask(MODSTR);
 
-    const auto DESCRIPTION = hasDescription ? ARGS[2] : "";
+    const auto KEY = multiKey ? "" : ARG(1);
 
-    auto       HANDLER = ARGS[2 + DESCR_OFFSET];
+    const auto DEVICEARGS = isPerDevice ? ARG(2) : "";
 
-    const auto COMMAND = mouse ? HANDLER : ARGS[3 + DESCR_OFFSET];
+    const auto DESCRIPTION = hasDescription ? ARG(2 + DEVICE_OFFSET) : "";
+
+    auto       HANDLER = ARG(2 + DESCR_OFFSET + DEVICE_OFFSET);
+
+    const auto COMMAND = mouse ? HANDLER : ARG(3 + DESCR_OFFSET + DEVICE_OFFSET);
 
     if (mouse)
         HANDLER = "mouse";
@@ -2607,6 +2618,16 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
         return "Invalid mod, requested mod \"" + MODSTR + "\" is not a valid mod.";
     }
 
+    bool                            deviceInclusive = false;
+    std::unordered_set<std::string> devices         = {};
+    if (!DEVICEARGS.empty()) {
+        deviceInclusive = DEVICEARGS.front() != '!';
+        for (const auto& deviceString : CVarList(DEVICEARGS.substr(deviceInclusive ? 0 : 1), 0, ' ')) {
+            if (!deviceString.empty())
+                devices.emplace(deviceString);
+        }
+    }
+
     if ((!KEY.empty()) || multiKey) {
         SParsedKey parsedKey = parseKey(KEY);
 
@@ -2618,7 +2639,7 @@ std::optional<std::string> CConfigManager::handleBind(const std::string& command
         g_pKeybindManager->addKeybind(SKeybind{parsedKey.key, KEYSYMS,      parsedKey.keycode, parsedKey.catchAll, MOD,      MODS,           HANDLER,
                                                COMMAND,       locked,       m_currentSubmap,   DESCRIPTION,        release,  repeat,         longPress,
                                                mouse,         nonConsuming, transparent,       ignoreMods,         multiKey, hasDescription, dontInhibit,
-                                               click,         drag,         submapUniversal});
+                                               click,         drag,         submapUniversal,   deviceInclusive,    devices});
     }
 
     return {};

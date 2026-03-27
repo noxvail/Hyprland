@@ -80,6 +80,30 @@ static CUniquePointer<CProcess> spawnRemoteControlKitty() {
     return kittyProc;
 }
 
+static std::string getTestKeyboardName() {
+    static const std::string PREFIX = R"("name": "test-keyboard)";
+
+    const std::string        devicesJson = getFromSocket("j/devices");
+    const auto               namePos     = devicesJson.find(PREFIX);
+
+    if (namePos == std::string::npos) {
+        NLog::log("{}Error: test keyboard not found in devices json:\n{}", Colors::RED, devicesJson);
+        ret = 1;
+        return "test-keyboard";
+    }
+
+    const auto valueStart = namePos + std::string{R"("name": ")"}.size();
+    const auto valueEnd   = devicesJson.find('"', valueStart);
+
+    if (valueEnd == std::string::npos) {
+        NLog::log("{}Error: malformed devices json:\n{}", Colors::RED, devicesJson);
+        ret = 1;
+        return "test-keyboard";
+    }
+
+    return devicesJson.substr(valueStart, valueEnd - valueStart);
+}
+
 static void testBind() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/keyword bind SUPER,Y,exec,touch " + flagFile), "ok");
@@ -513,6 +537,49 @@ static void testSubmapUniversal() {
     EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
 }
 
+static void testPerDeviceKeybind() {
+    NLog::log("{}Testing per-device binds", Colors::GREEN);
+    const auto keyboardName = getTestKeyboardName();
+    auto       bindCommand  = [&](std::string deviceSelector, const char* bindKeyword = "bindk") {
+        std::string command = std::string{"/keyword "} + bindKeyword + " SUPER,Y,";
+        command += deviceSelector;
+        command += ",exec,touch ";
+        command += flagFile;
+        return command;
+    };
+    auto bindDescCommand = [&](std::string deviceSelector) {
+        std::string command = "/keyword binddk SUPER,Y,";
+        command += deviceSelector;
+        command += ",test description,exec,touch ";
+        command += flagFile;
+        return command;
+    };
+
+    // Inclusive
+    EXPECT(checkFlag(), false);
+    EXPECT(getFromSocket(bindCommand(keyboardName)), "ok");
+    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(attemptCheckFlag(20, 50), true);
+    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+
+    // Exclusive
+    EXPECT(checkFlag(), false);
+    EXPECT(getFromSocket(bindCommand("!" + keyboardName)), "ok");
+    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(attemptCheckFlag(20, 50), false);
+    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+
+    // With description
+    EXPECT(checkFlag(), false);
+    EXPECT(getFromSocket(bindDescCommand(keyboardName)), "ok");
+    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(attemptCheckFlag(20, 50), true);
+    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+}
+
 static bool test() {
     NLog::log("{}Testing keybinds", Colors::GREEN);
 
@@ -537,6 +604,7 @@ static bool test() {
     testSubmap();
     testSubmapUniversal();
     testBindsAfterScroll();
+    testPerDeviceKeybind();
 
     clearFlag();
     return !ret;
