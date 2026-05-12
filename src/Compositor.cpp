@@ -3093,18 +3093,29 @@ PImageDescription CCompositor::getHDRImageDescription() {
         return getDefaultImageDescription();
     }
 
-    return m_monitors.size() == 1 && m_monitors[0]->m_output && m_monitors[0]->m_output->parsedEDID.hdrMetadata.has_value() ?
-        CImageDescription::from(SImageDescription{
-            .transferFunction    = NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ,
-            .primariesNameSet    = true,
-            .primariesNamed      = NColorManagement::CM_PRIMARIES_BT2020,
-            .primaries           = NColorManagement::getPrimaries(NColorManagement::CM_PRIMARIES_BT2020),
-            .masteringPrimaries  = m_monitors[0]->getMasteringPrimaries(),
-            .luminances          = {.min = m_monitors[0]->minLuminance(HDR_MIN_LUMINANCE), .max = m_monitors[0]->maxLuminance(HDR_MAX_LUMINANCE), .reference = HDR_REF_LUMINANCE},
-            .masteringLuminances = m_monitors[0]->getMasteringLuminances(),
-            .maxCLL              = m_monitors[0]->maxCLL(),
-            .maxFALL             = m_monitors[0]->maxFALL()}) :
-        DEFAULT_HDR_IMAGE_DESCRIPTION;
+    if (m_monitors.size() != 1)
+        return DEFAULT_HDR_IMAGE_DESCRIPTION;
+
+    const auto MONITOR = m_monitors.front();
+    if (!MONITOR->m_output || !MONITOR->m_output->parsedEDID.hdrMetadata.has_value())
+        return DEFAULT_HDR_IMAGE_DESCRIPTION;
+
+    const float    minLuminance = MONITOR->minLuminance(HDR_MIN_LUMINANCE);
+    const float    maxLuminance = MONITOR->maxLuminance(HDR_MAX_LUMINANCE);
+    const uint32_t refLuminance =
+        clampReferenceLuminance(MONITOR->m_sdrMaxLuminance > 0 ? MONITOR->m_sdrMaxLuminance : HDR_REF_LUMINANCE, minLuminance, maxLuminance, HDR_REF_LUMINANCE);
+
+    return CImageDescription::from(SImageDescription{
+        .transferFunction    = NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ,
+        .primariesNameSet    = true,
+        .primariesNamed      = NColorManagement::CM_PRIMARIES_BT2020,
+        .primaries           = NColorManagement::getPrimaries(NColorManagement::CM_PRIMARIES_BT2020),
+        .masteringPrimaries  = MONITOR->getMasteringPrimaries(),
+        .luminances          = {.min = minLuminance, .max = maxLuminance, .reference = refLuminance},
+        .masteringLuminances = MONITOR->getMasteringLuminances(),
+        .maxCLL              = MONITOR->maxCLL(),
+        .maxFALL             = MONITOR->maxFALL(),
+    });
 }
 
 bool CCompositor::shouldChangePreferredImageDescription() {

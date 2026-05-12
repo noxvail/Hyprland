@@ -621,7 +621,10 @@ PImageDescription CWLSurfaceResource::getPreferredImageDescription() {
     else if (m_hlSurface.valid() && WINDOW)
         monitor = WINDOW->m_monitor;
 
-    return monitor ? monitor->m_imageDescription : g_pCompositor->getPreferredImageDescription();
+    if (!monitor)
+        return g_pCompositor->getPreferredImageDescription();
+
+    return monitor->m_imageDescription->value().isHDRLike() ? monitor->workBufferImageDescription() : monitor->m_imageDescription;
 }
 
 void CWLSurfaceResource::sortSubsurfaces() {

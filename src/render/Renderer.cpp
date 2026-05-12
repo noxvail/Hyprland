@@ -1902,8 +1902,8 @@ SCMSettings IHyprRenderer::getCMSettings(const NColorManagement::PImageDescripti
         .dstRefLuminance = targetImageDescription->value().luminances.reference,
         .convertMatrix   = matrix.mat(),
 
-        .needsTonemap            = maxLuminance >= dstMaxLuminance * 1.01,
-        .maxLuminance            = maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
+        .needsTonemap            = maxLuminance >= dstMaxLuminance * 1.01 || imageDescription->value().needsLuminanceMapping(targetImageDescription->value()),
+        .maxLuminance            = maxLuminance * imageDescription->value().getReferenceWhiteScale(targetImageDescription->value()),
         .dstMaxLuminance         = dstMaxLuminance,
         .dstPrimaries2XYZ        = toXYZ.mat(),
         .needsSDRmod             = needsMod,

@@ -621,12 +621,18 @@ void CMonitor::applyCMType(NCMType::eCMType cmType, NTransferFunction::eTF cmSdr
             break;
         default: UNREACHABLE();
     }
-    if ((minLuminance() >= 0 || maxLuminance() > 0) && (cmType == NCMType::CM_HDR || cmType == NCMType::CM_HDR_EDID))
+    if (cmType == NCMType::CM_HDR || cmType == NCMType::CM_HDR_EDID) {
+        const auto&    current      = m_imageDescription->value().luminances;
+        const float    minLuminance = this->minLuminance() >= 0 ? this->minLuminance() : current.min;
+        const float    maxLuminance = this->maxLuminance() > 0 ? this->maxLuminance() : current.max;
+        const uint32_t refLuminance = clampReferenceLuminance(m_sdrMaxLuminance > 0 ? m_sdrMaxLuminance : current.reference, minLuminance, maxLuminance, current.reference);
+
         m_imageDescription = m_imageDescription->with({
-            .min       = minLuminance() >= 0 ? minLuminance() : m_imageDescription->value().luminances.min, //
-            .max       = maxLuminance() > 0 ? maxLuminance() : m_imageDescription->value().luminances.max,  //
-            .reference = m_imageDescription->value().luminances.reference                                   //
+            .min       = minLuminance,
+            .max       = maxLuminance,
+            .reference = refLuminance,
         });
+    }
 
     if (oldImageDescription != m_imageDescription) {
         if (PROTO::colorManagement)
@@ -2616,13 +2622,10 @@ PImageDescription CMonitor::workBufferImageDescription() {
 
     const auto& value = m_imageDescription->value();
 
-    const bool  isHDRLikeTF =
-        value.transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ || value.transferFunction == CM_TRANSFER_FUNCTION_HLG || value.transferFunction == CM_TRANSFER_FUNCTION_EXT_LINEAR;
-
     const auto& cached = m_cachedInternalDescription->value();
 
     // HDR
-    if (isHDRLikeTF || value.windowsScRGB || *PFP16TF != 0) {
+    if (value.isHDRLike() || *PFP16TF != 0) {
         if (cached.transferFunction != LINEAR_IMAGE_DESCRIPTION->value().transferFunction || cached.luminances != value.luminances)
             m_cachedInternalDescription = LINEAR_IMAGE_DESCRIPTION->with(value.luminances);
         return m_cachedInternalDescription;

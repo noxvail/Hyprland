@@ -38,8 +38,10 @@ const mat3 ICtCpPQInv = mat3(                                                //
 // const mat3 ICtCpHLGInv = inverse(ICtCpHLG);
 
 vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance) {
+    float refScale = srcRefLuminance == 0.0 ? 1.0 : dstRefLuminance / srcRefLuminance;
+
     if (maxLuminance < dstMaxLuminance * 1.01)
-        return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color[3]);
+        return vec4(clamp(color.rgb * refScale, vec3(0.0), vec3(dstMaxLuminance)), color[3]);
 
     mat3  toLMS   = BT2020toLMS * dstXYZ;
     mat3  fromLMS = inverse(dstXYZ) * LMStoBT2020;
