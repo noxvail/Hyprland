@@ -357,6 +357,11 @@ CWindowRuleApplicator::SRuleResult CWindowRuleApplicator::applyDynamicRule(const
                 m_scrollTouchpad.second |= rule->getPropertiesMask();
                 break;
             }
+            case WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE: {
+                m_hdrReferenceLuminance.first.set(std::get<int64_t>(value), Types::PRIORITY_WINDOW_RULE);
+                m_hdrReferenceLuminance.second |= rule->getPropertiesMask();
+                break;
+            }
         }
     }
     return result;

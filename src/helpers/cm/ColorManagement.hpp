@@ -298,6 +298,18 @@ namespace NColorManagement {
             }
         };
 
+        bool isHDRLike() const {
+            return transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ || transferFunction == CM_TRANSFER_FUNCTION_HLG || transferFunction == CM_TRANSFER_FUNCTION_EXT_LINEAR ||
+                windowsScRGB;
+        }
+
+        float hdrReferenceWhiteScale(uint32_t referenceLuminance) const {
+            if (!isHDRLike() || referenceLuminance == 0 || luminances.reference == 0)
+                return 1.F;
+
+            return referenceLuminance / static_cast<float>(luminances.reference);
+        }
+
         float getTFMaxLuminance(int sdrMaxLuminance = -1) const {
             switch (transferFunction) {
                 case CM_TRANSFER_FUNCTION_EXT_LINEAR:

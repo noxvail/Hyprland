@@ -119,6 +119,7 @@ namespace Desktop::Rule {
         DEFINE_PROP(bool, confinePointer, false, WINDOW_RULE_EFFECT_CONFINE_POINTER)
 
         DEFINE_PROP(int, idleInhibitMode, false, WINDOW_RULE_EFFECT_IDLE_INHIBIT)
+        DEFINE_PROP(int, hdrReferenceLuminance, 0, WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE)
 
         DEFINE_PROP(Config::INTEGER, borderSize, {std::string("general:border_size") COMMA sc<Config::INTEGER>(0) COMMA std::nullopt}, WINDOW_RULE_EFFECT_BORDER_SIZE)
         DEFINE_PROP(Config::INTEGER, rounding, {std::string("decoration:rounding") COMMA sc<Config::INTEGER>(0) COMMA std::nullopt}, WINDOW_RULE_EFFECT_ROUNDING)

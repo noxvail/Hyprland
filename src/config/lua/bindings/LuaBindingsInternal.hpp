@@ -102,6 +102,7 @@ namespace Config::Lua::Bindings::Internal {
         {"no_vrr", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_NO_VRR},
         {"stay_focused", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_STAY_FOCUSED},
         {"confine_pointer", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_CONFINE_POINTER},
+        {"hdr_reference_luminance", []() -> ILuaConfigValue* { return new CLuaConfigInt(0); }, WE::WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE},
     };
 
     std::string                                        argStr(lua_State* L, int idx);

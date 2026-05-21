@@ -7,6 +7,7 @@
 #include <hyprutils/path/Path.hpp>
 #include <numbers>
 #include <random>
+#include <unordered_set>
 #include <pango/pangocairo.h>
 #include "OpenGL.hpp"
 #include "Renderer.hpp"
@@ -1365,9 +1366,30 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(SP<ITexture> tex, const STexture
         shaderFeatures |= SH_FEAT_ROUNDING;
 
     if (!skipCM) {
-        const auto settings =
-            g_pHyprRenderer->getCMSettings(SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
-                                           g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance, true);
+        auto settings = g_pHyprRenderer->getCMSettings(SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
+                                                       g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance, true);
+
+        if (g_pHyprRenderer->m_renderData.currentWindow) {
+            const auto PWINDOW                 = g_pHyprRenderer->m_renderData.currentWindow.lock();
+            const auto HDR_REFERENCE_LUMINANCE = PWINDOW->m_ruleApplicator->hdrReferenceLuminance().valueOrDefault();
+            const auto HDR_REFERENCE_SCALE     = SOURCE_IMAGE_DESCRIPTION->value().hdrReferenceWhiteScale(HDR_REFERENCE_LUMINANCE);
+
+            if (HDR_REFERENCE_SCALE != 1.F) {
+                settings.srcTFRange.min *= HDR_REFERENCE_SCALE;
+                settings.srcTFRange.max *= HDR_REFERENCE_SCALE;
+                settings.maxLuminance *= HDR_REFERENCE_SCALE;
+            }
+
+            static std::unordered_set<std::string> loggedHDRReferenceScales;
+            const auto LOG_KEY = std::format("{}:{}:{}:{}:{}", rc<uintptr_t>(PWINDOW.get()), SOURCE_IMAGE_DESCRIPTION->id(), HDR_REFERENCE_LUMINANCE, settings.srcTFRange.max,
+                                             settings.maxLuminance);
+            if (SOURCE_IMAGE_DESCRIPTION->value().isHDRLike() && loggedHDRReferenceScales.emplace(LOG_KEY).second)
+                Log::logger->log(Log::DEBUG,
+                                 "CM: window class={} initialClass={} title=\"{}\" hdr_reference_luminance={} hdr_reference_scale={} source={} srcTFRange={} - {} "
+                                 "maxLuminance={}",
+                                 PWINDOW->m_class, PWINDOW->m_initialClass, PWINDOW->m_title, HDR_REFERENCE_LUMINANCE, HDR_REFERENCE_SCALE, SOURCE_IMAGE_DESCRIPTION->value(),
+                                 settings.srcTFRange.min, settings.srcTFRange.max, settings.maxLuminance);
+        }
 
         shaderFeatures |= SH_FEAT_CM;
 

@@ -280,10 +280,13 @@ static std::expected<WindowRuleEffectValue, std::string> parseWindowRuleEffect(C
         case WINDOW_RULE_EFFECT_CONTENT: return sc<int64_t>(NContentType::fromString(raw));
 
         case WINDOW_RULE_EFFECT_NOCLOSEFOR:
-        case WINDOW_RULE_EFFECT_BORDER_SIZE: {
+        case WINDOW_RULE_EFFECT_BORDER_SIZE:
+        case WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE: {
             auto parsed = parseInt(EFFECT_NAME, raw);
             if (!parsed)
                 return std::unexpected(parsed.error());
+            if (e == WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE && *parsed < 0)
+                return std::unexpected(std::format("{} rule \"{}\" must be non-negative", EFFECT_NAME, raw));
             return *parsed;
         }
 
