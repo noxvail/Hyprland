@@ -295,10 +295,13 @@ static std::expected<WindowRuleEffectValue, std::string> parseWindowRuleEffect(C
         };
 
         case WINDOW_RULE_EFFECT_NOCLOSEFOR:
-        case WINDOW_RULE_EFFECT_BORDER_SIZE: {
+        case WINDOW_RULE_EFFECT_BORDER_SIZE:
+        case WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE: {
             auto parsed = parseInt(EFFECT_NAME, raw);
             if (!parsed)
                 return std::unexpected(parsed.error());
+            if (e == WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE && (*parsed < 0 || *parsed > HDR_REFERENCE_LUMINANCE_MAX))
+                return std::unexpected(std::format("{} rule \"{}\" must be between 0 and {}", EFFECT_NAME, raw, HDR_REFERENCE_LUMINANCE_MAX));
             return *parsed;
         }
 

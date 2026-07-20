@@ -6,6 +6,8 @@
 #pragma once
 
 namespace Desktop::Rule {
+    inline constexpr int HDR_REFERENCE_LUMINANCE_MAX = 10000;
+
     enum eWindowRuleEffect : uint8_t {
         WINDOW_RULE_EFFECT_NONE = 0,
 
@@ -65,6 +67,7 @@ namespace Desktop::Rule {
         WINDOW_RULE_EFFECT_NO_VRR,
         WINDOW_RULE_EFFECT_NO_AUTO_HDR,
         WINDOW_RULE_EFFECT_TONEMAP,
+        WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE,
         WINDOW_RULE_EFFECT_SCROLL_MOUSE,
         WINDOW_RULE_EFFECT_SCROLL_TOUCHPAD,
         WINDOW_RULE_EFFECT_STAY_FOCUSED,

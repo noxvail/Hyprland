@@ -34,8 +34,16 @@ CWindowRuleApplicator::CWindowRuleApplicator(PHLWINDOW w) : m_window(w) {
     ;
 }
 
+void CWindowRuleApplicator::resetHdrReferenceLuminanceProp(std::pair<Types::COverridableVar<int>, std::underlying_type_t<eRuleProperty>>& prop,
+                                                           std::underlying_type_t<eRuleProperty> props, Types::eOverridePriority prio,
+                                                           std::unordered_set<CWindowRuleEffectContainer::storageType>& effectsNuked) {
+    resetRuleProp(prop, props, prio, effectsNuked, [] { return WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE; });
+}
+
 std::unordered_set<CWindowRuleEffectContainer::storageType> CWindowRuleApplicator::resetProps(std::underlying_type_t<eRuleProperty> props, Types::eOverridePriority prio) {
     std::unordered_set<CWindowRuleEffectContainer::storageType> effectsNuked;
+
+    resetHdrReferenceLuminanceProp(m_hdrReferenceLuminance, props, prio, effectsNuked);
 
     std::apply([&](auto&&... prop) { (resetRuleProp(prop.first.get(), props, prio, effectsNuked, prop.second), ...); },
                std::make_tuple(
@@ -348,6 +356,11 @@ CWindowRuleApplicator::SRuleResult CWindowRuleApplicator::applyDynamicRule(const
             case WINDOW_RULE_EFFECT_TONEMAP: {
                 m_tonemap.first.set(std::get<int64_t>(value), Types::PRIORITY_WINDOW_RULE);
                 m_noAutoHDR.second |= rule->getPropertiesMask();
+                break;
+            }
+            case WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE: {
+                m_hdrReferenceLuminance.first.set(std::get<int64_t>(value), Types::PRIORITY_WINDOW_RULE);
+                m_hdrReferenceLuminance.second |= rule->getPropertiesMask();
                 break;
             }
             case WINDOW_RULE_EFFECT_STAY_FOCUSED: {
