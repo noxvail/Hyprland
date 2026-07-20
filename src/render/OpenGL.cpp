@@ -1377,9 +1377,20 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(SP<ITexture> tex, const STexture
         shaderFeatures |= SH_FEAT_ROUNDING;
 
     if (!skipCM) {
-        const auto settings =
-            g_pHyprRenderer->getCMSettings(SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
-                                           g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance, true);
+        auto settings = g_pHyprRenderer->getCMSettings(SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
+                                                       g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance, true);
+
+        if (g_pHyprRenderer->m_renderData.currentWindow) {
+            const auto PWINDOW                 = g_pHyprRenderer->m_renderData.currentWindow.lock();
+            const auto HDR_REFERENCE_LUMINANCE = PWINDOW->m_ruleApplicator->hdrReferenceLuminance().valueOrDefault();
+            const auto HDR_REFERENCE_SCALE     = SOURCE_IMAGE_DESCRIPTION->value().hdrReferenceWhiteScale(HDR_REFERENCE_LUMINANCE);
+
+            if (HDR_REFERENCE_SCALE != 1.F) {
+                settings.srcTFRange.min *= HDR_REFERENCE_SCALE;
+                settings.srcTFRange.max *= HDR_REFERENCE_SCALE;
+                settings.maxLuminance *= HDR_REFERENCE_SCALE;
+            }
+        }
 
         shaderFeatures |= SH_FEAT_CM;
 
@@ -2139,9 +2150,9 @@ void CHyprOpenGLImpl::renderTextureWithBlurInternal(SP<ITexture> tex, const CBox
 }
 
 static ShaderFeatureFlags getDecoFeatures() {
-    const bool IS_ICC   = g_pHyprRenderer->workBufferImageDescription()->value().icc.present;
-    const auto settings = g_pHyprRenderer->getCMSettings(g_pHyprRenderer->workBufferImageDescription(), getDefaultImageDescription(), nullptr, true,
-                                                         g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance);
+    const bool         IS_ICC   = g_pHyprRenderer->workBufferImageDescription()->value().icc.present;
+    const auto         settings = g_pHyprRenderer->getCMSettings(g_pHyprRenderer->workBufferImageDescription(), getDefaultImageDescription(), nullptr, true,
+                                                                 g_pHyprRenderer->m_renderData.pMonitor->m_sdrMinLuminance, g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance);
 
     ShaderFeatureFlags features = SH_FEAT_ROUNDING | SH_FEAT_CM | globalFeatures();
     if (IS_ICC)

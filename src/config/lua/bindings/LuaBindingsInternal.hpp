@@ -101,6 +101,8 @@ namespace Config::Lua::Bindings::Internal {
         {"no_screen_share", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_NO_SCREEN_SHARE},
         {"no_vrr", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_NO_VRR},
         {"no_auto_hdr", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_NO_AUTO_HDR},
+        {"hdr_reference_luminance", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, 0, Desktop::Rule::HDR_REFERENCE_LUMINANCE_MAX); },
+         WE::WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE},
         {"stay_focused", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_STAY_FOCUSED},
         {"confine_pointer", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }, WE::WINDOW_RULE_EFFECT_CONFINE_POINTER},
         {"tonemap", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); }, WE::WINDOW_RULE_EFFECT_TONEMAP},
