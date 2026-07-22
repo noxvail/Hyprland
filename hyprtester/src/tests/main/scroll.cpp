@@ -2574,6 +2574,44 @@ TEST_CASE(layoutmsg_fit_into_view) {
     ASSERT_CONTAINS(Tests::getAttribute(getFromSocket("/activewindow"), "at"), "22,22");
 }
 
+TEST_CASE(scrollFocusCenterClamped) {
+    OK(getFromSocket("r/eval hl.config({ general = { layout = 'scrolling', gaps_in = 0, border_size = 0, gaps_out = 0 }, scrolling = { column_width = 0.5, "
+                     "fullscreen_on_one_column = false, focus_fit_method = 2, follow_focus = true } })"));
+
+    for (auto const& win : {"a", "b", "c"}) {
+        SPAWN_KITTY(win);
+    }
+
+    const auto activeX = [] {
+        const auto position = Tests::getAttribute(getFromSocket("/activewindow"), "at");
+        return std::stoi(position.substr(0, position.find(',')));
+    };
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:b' })"));
+    EXPECT(activeX(), 480);
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:a' })"));
+    EXPECT(activeX(), 0);
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:c' })"));
+    EXPECT(activeX(), 960);
+}
+
+TEST_CASE(scrollFocusCenterClampedExactFit) {
+    OK(getFromSocket("r/eval hl.config({ general = { layout = 'scrolling', gaps_in = 0, border_size = 0, gaps_out = 0 }, scrolling = { column_width = 0.5, "
+                     "fullscreen_on_one_column = false, focus_fit_method = 2, follow_focus = true } })"));
+
+    for (auto const& win : {"a", "b"}) {
+        SPAWN_KITTY(win);
+    }
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:a' })"));
+    EXPECT(Tests::getAttribute(getFromSocket("/activewindow"), "at"), "0,0");
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:b' })"));
+    EXPECT(Tests::getAttribute(getFromSocket("/activewindow"), "at"), "960,0");
+}
+
 TEST_CASE(layoutRuleExpand) {
     // set current layout to scrolling
     OK(getFromSocket(
