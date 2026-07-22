@@ -701,7 +701,7 @@ std::vector<SP<IValue>> Values::getConfigValues() {
                  {.refresh = Supplementary::REFRESH_LAYOUTS}),
         MS<Float>("scrolling:column_width", "the default width of a column.", 0.5, {.min = 0.1, .max = 1.0}),
         MS<Int>("scrolling:focus_fit_method", "When a column is focused, what method should be used to bring it into view", 1,
-                {.min = 0, .max = 1, .map = OptionMap{{"center", 0}, {"fit", 1}}}),
+                {.min = 0, .max = 2, .map = OptionMap{{"center", 0}, {"fit", 1}, {"center_clamped", 2}}}),
         MS<Bool>("scrolling:follow_focus", "when a window is focused, should the layout move to bring it into view automatically", true),
         MS<Float>("scrolling:follow_min_visible", "when a window is focused, require that at least a given fraction of it is visible for focus to follow", 0.4,
                   {.min = 0.0, .max = 1.0}),
