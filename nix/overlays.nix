@@ -41,11 +41,14 @@ in
   ];
 
   # Hyprland with its internal dependencies.
-  hyprland = lib.composeManyExtensions (with self.overlays; [
-    udis86
-    glaze
-    hyprland-no-deps
-  ]);
+  hyprland = lib.composeManyExtensions (
+    with self.overlays;
+    [
+      udis86
+      glaze
+      hyprland-no-deps
+    ]
+  );
 
   # Hyprland without any dependencies.
   hyprland-no-deps =
@@ -126,10 +129,20 @@ in
 
   # Even though glaze itself disables it by default, nixpkgs sets ENABLE_SSL set to true.
   # Since we don't include openssl, the build failes without the `enableSSL = false;` override
-  glaze = _final: prev: {
-    glaze-hyprland = prev.glaze.override {
-      enableSSL = false;
-      enableInterop = false;
-    };
+  glaze = final: prev: {
+    glaze-hyprland =
+      (prev.glaze.override {
+        enableSSL = false;
+        enableInterop = false;
+    }).overrideAttrs
+      {
+        version = "7.2.0";
+        src = final.fetchFromGitHub {
+          owner = "stephenberry";
+          repo = "glaze";
+          tag = "v7.2.0";
+          hash = "sha256-f3NVRi3SXKo42hn0WCw7JsOK3EkdOVJIcuzhPorKjFY=";
+        };
+      };
   };
 }
