@@ -244,7 +244,7 @@ void CMonocleAlgorithm::cycleNext() {
         return;
 
     m_currentVisibleIndex = (m_currentVisibleIndex + 1) % m_targetDatas.size();
-    updateVisible();
+    updateVisible(true);
 }
 
 void CMonocleAlgorithm::cyclePrev() {
@@ -254,7 +254,7 @@ void CMonocleAlgorithm::cyclePrev() {
     m_currentVisibleIndex--;
     if (m_currentVisibleIndex < 0)
         m_currentVisibleIndex = m_targetDatas.size() - 1;
-    updateVisible();
+    updateVisible(true);
 }
 
 void CMonocleAlgorithm::focusTargetUpdate(SP<ITarget> target) {
@@ -271,7 +271,7 @@ void CMonocleAlgorithm::focusTargetUpdate(SP<ITarget> target) {
     }
 }
 
-void CMonocleAlgorithm::updateVisible() {
+void CMonocleAlgorithm::updateVisible(bool forceFSCycle) {
     recalculate();
 
     const auto VISIBLE_TARGET = getVisibleTarget();
@@ -282,7 +282,7 @@ void CMonocleAlgorithm::updateVisible() {
     if (!WINDOW)
         return;
 
-    Desktop::focusState()->fullWindowFocus(WINDOW, Desktop::FOCUS_REASON_DESKTOP_STATE_CHANGE);
+    Desktop::focusState()->fullWindowFocus(WINDOW, Desktop::FOCUS_REASON_DESKTOP_STATE_CHANGE, nullptr, forceFSCycle);
 }
 
 SP<ITarget> CMonocleAlgorithm::getVisibleTarget() {

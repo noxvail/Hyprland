@@ -46,7 +46,7 @@ namespace Layout::Tiled {
         void                                cycleNext();
         void                                cyclePrev();
         void                                focusTargetUpdate(SP<ITarget> target);
-        void                                updateVisible();
+        void                                updateVisible(bool forceFSCycle = false);
         SP<ITarget>                         getVisibleTarget();
     };
 };
