@@ -4,9 +4,27 @@
 
 #include "defines.h"
 
-precision         highp float;
-in vec2           v_texcoord;
+precision highp float;
+in vec2   v_texcoord;
+#if USE_YUV
+uniform highp sampler2D tex;
+uniform highp sampler2D chromaTex;
+uniform mat3            yuvMatrix;
+uniform vec3            yuvOffset;
+uniform vec2            chromaScale;
+uniform vec2            chromaOffset;
+#else
 uniform sampler2D tex;
+#endif
+
+vec4 sampleSurface(vec2 uv) {
+#if USE_YUV
+    vec3 yuv = vec3(texture(tex, uv).r, texture(chromaTex, uv * chromaScale + chromaOffset).rg);
+    return vec4(yuvMatrix * (yuv + yuvOffset), 1.0);
+#else
+    return texture(tex, uv);
+#endif
+}
 #if USE_BLUR
 uniform vec2      uvSize;
 uniform vec2      uvOffset;
@@ -41,12 +59,31 @@ const float roundingPower = 2.0;
 #endif
 
 #if USE_MOTION_BLUR
-uniform vec4  motionPrevBox;
-uniform vec4  motionCurrBox;
-uniform vec4  motionSourceBox;
-uniform vec2  motionSourceTexSize;
-uniform int   motionSamples;
+uniform vec4 motionPrevBox;
+uniform vec4 motionCurrBox;
+uniform vec4 motionSourceBox;
+uniform vec2 motionSourceTexSize;
+uniform int  motionSamples;
 #include "motion_blur.glsl"
+
+#if USE_YUV
+vec4 motionBlurSurface() {
+    int  samples     = int(clamp(float(motionSamples), 1.0, float(MOTION_BLUR_MAX_SAMPLES)));
+    vec4 accumulated = vec4(0.0);
+    for (int i = 0; i < samples; ++i) {
+        vec4 box = mix(motionCurrBox, motionPrevBox, float(i) / float(samples));
+        vec2 uv  = (vec2(gl_FragCoord) - box.xy) / box.zw;
+        if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0)
+            continue;
+        vec4 color = sampleSurface((motionSourceBox.xy + uv * motionSourceBox.zw) / motionSourceTexSize);
+#if !USE_RGBA
+        color.a = 1.0;
+#endif
+        accumulated += color;
+    }
+    return accumulated / float(samples);
+}
+#endif
 #endif
 
 #if USE_CM
@@ -68,15 +105,19 @@ layout(location = 1) out vec4 mirrorColor;
 #endif
 void main() {
 #if USE_MOTION_BLUR
+#if USE_YUV
+    vec4 pixColor = motionBlurSurface();
+#else
     vec4 pixColor = motionBlurSample(tex, motionPrevBox, motionCurrBox, motionSourceBox, motionSourceTexSize, motionSamples, USE_RGBA == 1);
+#endif
 #if USE_BLUR_MATTE
     float blurAlphaMask = clamp(motionBlurSample(blurAlphaMatte, motionPrevBox, motionCurrBox, motionSourceBox, motionSourceTexSize, motionSamples, true).r, 0.0, 1.0);
 #endif
 #else
 #if USE_RGBA
-    vec4 pixColor = texture(tex, v_texcoord);
+    vec4 pixColor = sampleSurface(v_texcoord);
 #else
-    vec4 pixColor = vec4(texture(tex, v_texcoord).rgb, 1.0);
+    vec4 pixColor = vec4(sampleSurface(v_texcoord).rgb, 1.0);
 #endif
 #if USE_BLUR_MATTE
     float blurAlphaMask = clamp(texture(blurAlphaMatte, v_texcoord).r, 0.0, 1.0);
@@ -188,7 +229,7 @@ void main() {
         mirrorColor = mix(mirrorColor, vec4(mix(texture(blurredBG, v_texcoord * uvSize + uvOffset).rgb, mirrorColor.rgb, mirrorColor.a), 1.0),
                           discardAlpha && (mirrorColor.a <= discardAlphaValue) ? 0.0 : 1.0);
 #else
-        mirrorColor = vec4(mix(texture(blurredBG, v_texcoord * uvSize + uvOffset).rgb, mirrorColor.rgb, mirrorColor.a), 1.0);
+    mirrorColor = vec4(mix(texture(blurredBG, v_texcoord * uvSize + uvOffset).rgb, mirrorColor.rgb, mirrorColor.a), 1.0);
 #endif
 #if USE_BLUR_ALPHA_MASK
     } else

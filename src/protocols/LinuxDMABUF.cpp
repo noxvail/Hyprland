@@ -69,6 +69,8 @@ CDMABUFFormatTable::CDMABUFFormatTable(SDMABUFTranche _rendererTranche, std::vec
     for (auto& [monitor, tranche] : m_monitorTranches) {
         tranche.indices.clear();
         for (auto const& fmt : tranche.formats) {
+            if (NFormatUtils::isFormatYUV(fmt.drmFormat))
+                continue;
             for (auto const& mod : fmt.modifiers) {
                 LOGM(Log::TRACE, "[DMA] Monitor format 0x{:x} ({}) with mod 0x{:x} ({})", fmt.drmFormat, NFormatUtils::drmFormatName(fmt.drmFormat), mod,
                      NFormatUtils::drmModifierName(mod));

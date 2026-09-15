@@ -148,6 +148,11 @@ void CShader::getUniformLocations() {
     m_uniformLocations[SHADER_TONEMAP_MODE]         = getUniform("tonemapMode");
     //
     m_uniformLocations[SHADER_TEX]                    = getUniform("tex");
+    m_uniformLocations[SHADER_CHROMA_TEX]             = getUniform("chromaTex");
+    m_uniformLocations[SHADER_YUV_MATRIX]             = getUniform("yuvMatrix");
+    m_uniformLocations[SHADER_YUV_OFFSET]             = getUniform("yuvOffset");
+    m_uniformLocations[SHADER_CHROMA_SCALE]           = getUniform("chromaScale");
+    m_uniformLocations[SHADER_CHROMA_OFFSET]          = getUniform("chromaOffset");
     m_uniformLocations[SHADER_BLURRED_BG]             = getUniform("blurredBG");
     m_uniformLocations[SHADER_UV_SIZE]                = getUniform("uvSize");
     m_uniformLocations[SHADER_UV_OFFSET]              = getUniform("uvOffset");

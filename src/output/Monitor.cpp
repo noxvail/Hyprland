@@ -2085,6 +2085,12 @@ uint16_t CMonitor::isDSBlocked(bool full) {
             return reasons;
     }
 
+    if (PSURFACE->m_current.texture->m_type == Render::TEXTURE_YUV) {
+        reasons |= DS_BLOCK_CM;
+        if (!full)
+            return reasons;
+    }
+
     const bool surfaceIsHDR   = PSURFACE->m_colorManagement.valid() && PSURFACE->m_colorManagement->isHDR();
     const bool surfaceIsScRGB = surfaceIsHDR && PSURFACE->m_colorManagement->isWindowsScRGB();
 

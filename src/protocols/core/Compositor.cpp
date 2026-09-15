@@ -124,6 +124,11 @@ CWLSurfaceResource::CWLSurfaceResource(SP<CWlSurface> resource_) : m_resource(re
     });
 
     m_resource->setCommit([this](CWlSurface* r) {
+        if (m_pending.updated.bits.colorRepresentation) {
+            m_pending.updated.bits.damage = true;
+            m_pending.bufferDamage        = CBox{{}, m_pending.bufferSize};
+        }
+
         if (m_pending.buffer)
             m_pending.bufferDamage.intersect(CBox{{}, m_pending.bufferSize});
 

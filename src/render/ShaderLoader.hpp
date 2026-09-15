@@ -25,6 +25,7 @@ namespace Render {
         SH_FEAT_BLUR_ALPHA_MASK = (1 << 11), // condition: transformed-window shader blur blend
         SH_FEAT_BLUR_MATTE      = (1 << 12), // condition: transformed-window blur matte
         SH_FEAT_ALT_TONEMAP     = (1 << 13), // condition: tonemapMode == 3
+        SH_FEAT_YUV             = (1 << 14),
 
         // uniforms: targetPrimariesXYZ; condition: SH_FEAT_TONEMAP || SH_FEAT_SDR_MOD
     };

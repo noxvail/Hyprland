@@ -336,7 +336,7 @@ namespace Render::GL {
         GLint                                                m_pressedHistoryTouched   = 0;
 
         //
-        std::optional<std::vector<uint64_t>> getModsForFormat(EGLint format);
+        std::optional<std::vector<uint64_t>> getModsForFormat(EGLint format, bool allowUnreportedLinear = true);
 
         // returns the out FB, can be either Mirror or MirrorSwap
         SP<IFramebuffer> blurFramebufferWithDamage(float a, CRegion* damage, CGLFramebuffer& source);

@@ -14,3 +14,4 @@
 #define USE_ICC         0
 #define USE_MIRROR      0
 #define USE_BLUR_MATTE  0
+#define USE_YUV         0

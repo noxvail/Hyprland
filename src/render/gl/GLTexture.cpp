@@ -66,7 +66,8 @@ CGLTexture::CGLTexture(uint32_t drmFormat, uint8_t* pixels, uint32_t stride, con
 }
 
 CGLTexture::CGLTexture(const Aquamarine::SDMABUFAttrs& attrs, void* image, bool opaque) {
-    m_opaque = opaque;
+    m_opaque   = opaque;
+    m_eglImage = image;
     if (!g_pHyprOpenGL->m_proc.glEGLImageTargetTexture2DOES) {
         Log::logger->log(Log::ERR, "Cannot create a dmabuf texture: no glEGLImageTargetTexture2DOES");
         return;
@@ -85,13 +86,22 @@ CGLTexture::CGLTexture(const Aquamarine::SDMABUFAttrs& attrs, void* image, bool 
     //}
 
     allocate(attrs.size, attrs.format);
-    m_eglImage = image;
-
     bind();
     setTexParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     setTexParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    GLCALL(g_pHyprOpenGL->m_proc.glEGLImageTargetTexture2DOES(m_target, image));
+
+    for (auto error = glGetError(); error != GL_NO_ERROR; error = glGetError())
+        Log::logger->log(Log::WARN, "GL error before dma-buf texture import: 0x{:x}", error);
+
+    g_pHyprOpenGL->m_proc.glEGLImageTargetTexture2DOES(m_target, image);
+    const auto importError = glGetError();
     unbind();
+
+    if (importError != GL_NO_ERROR) {
+        Log::logger->log(Log::ERR, "Cannot bind dma-buf format {} with modifier 0x{:x}: GL error 0x{:x}", NFormatUtils::drmFormatName(attrs.format), attrs.modifier, importError);
+        GLCALL(glDeleteTextures(1, &m_texID));
+        m_texID = 0;
+    }
 }
 
 CGLTexture::CGLTexture(std::span<const float> lut3D, size_t N) : ITexture(lut3D, N), m_target(GL_TEXTURE_3D) {
