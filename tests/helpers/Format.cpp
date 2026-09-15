@@ -5,6 +5,7 @@
 #include <drm_fourcc.h>
 #include <wayland-server-protocol.h>
 #include <hyprgraphics/egl/Egl.hpp>
+#include <array>
 #include <limits>
 
 using namespace Hyprgraphics::Egl;
@@ -29,8 +30,29 @@ TEST(Helpers, formatIsFormatYUV) {
     EXPECT_TRUE(isFormatYUV(DRM_FORMAT_YUYV));
     EXPECT_TRUE(isFormatYUV(DRM_FORMAT_NV12));
     EXPECT_TRUE(isFormatYUV(DRM_FORMAT_NV21));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_P010));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_P012));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_YVU420));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_XYUV8888));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_Y210));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_Q410));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_NV24));
+    EXPECT_TRUE(isFormatYUV(DRM_FORMAT_P010 | DRM_FORMAT_BIG_ENDIAN));
     EXPECT_FALSE(isFormatYUV(DRM_FORMAT_XRGB8888));
     EXPECT_FALSE(isFormatYUV(DRM_FORMAT_ARGB8888));
+}
+
+TEST(Helpers, formatYuvModifiersRequireBothRawPlanesAndKnownLayouts) {
+    constexpr uint64_t            amdTiled      = 0x0200000028a01f04;
+    constexpr uint64_t            amdDcc        = amdTiled | AMD_FMT_MOD_SET(DCC, 1);
+    constexpr uint64_t            unknownVendor = fourcc_mod_code(INTEL, 1);
+    const std::array<uint64_t, 5> luma{DRM_FORMAT_MOD_LINEAR, amdTiled, amdDcc, unknownVendor, DRM_FORMAT_MOD_INVALID};
+    const std::array<uint64_t, 4> chroma{amdTiled, amdDcc, unknownVendor, DRM_FORMAT_MOD_INVALID};
+
+    EXPECT_EQ(intersectYUVModifiers(luma, chroma), std::vector<uint64_t>{amdTiled});
+    EXPECT_TRUE(isSupportedYUVModifier(DRM_FORMAT_MOD_LINEAR));
+    EXPECT_FALSE(isSupportedYUVModifier(DRM_FORMAT_MOD_INVALID));
+    EXPECT_FALSE(isSupportedYUVModifier(amdDcc));
 }
 
 TEST(Helpers, formatGetPixelFormatFromDRM) {

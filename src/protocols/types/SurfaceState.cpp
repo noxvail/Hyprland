@@ -124,6 +124,9 @@ void SSurfaceState::updateFrom(SSurfaceState& ref) {
     if (ref.updated.bits.viewport)
         viewport = ref.viewport;
 
+    if (ref.updated.bits.colorRepresentation)
+        colorRepresentation = ref.colorRepresentation;
+
     if (ref.updated.bits.acquire)
         acquire = ref.acquire;
 

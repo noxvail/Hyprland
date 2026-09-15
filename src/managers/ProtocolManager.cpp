@@ -61,6 +61,7 @@
 #include "../protocols/core/Output.hpp"
 #include "../protocols/core/Shm.hpp"
 #include "../protocols/ColorManagement.hpp"
+#include "../protocols/ColorRepresentation.hpp"
 #include "../protocols/ContentType.hpp"
 #include "../protocols/XDGTag.hpp"
 #include "../protocols/XDGBell.hpp"
@@ -118,8 +119,8 @@ void CProtocolManager::onMonitorModeChange(PHLMONITOR pMonitor) {
         PROTO::outputs.at(pMonitor->m_name)->remove();
     else if (!ISMIRROR && (!PROTO::outputs.contains(pMonitor->m_name) || PROTO::outputs.at(pMonitor->m_name)->isDefunct())) {
         retireOutputGlobal(pMonitor->m_name);
-        auto p = PROTO::outputs.emplace(pMonitor->m_name,
-                                        makeShared<CWLOutputProtocol>(&wl_output_interface, 4, std::format("WLOutput ({})", pMonitor->m_name), pMonitor->m_self.lock()));
+        auto p                  = PROTO::outputs.emplace(pMonitor->m_name,
+                                                         makeShared<CWLOutputProtocol>(&wl_output_interface, 4, std::format("WLOutput ({})", pMonitor->m_name), pMonitor->m_self.lock()));
         p.first->second->m_self = p.first->second;
     }
 
@@ -211,6 +212,7 @@ CProtocolManager::CProtocolManager() {
     PROTO::inputCapture        = makeUnique<CInputCaptureProtocol>(&hyprland_input_capture_manager_v1_interface, 1, "InputCapture");
     PROTO::hyprlandSurface     = makeUnique<CHyprlandSurfaceProtocol>(&hyprland_surface_manager_v1_interface, 2, "HyprlandSurface");
     PROTO::contentType         = makeUnique<CContentTypeProtocol>(&wp_content_type_manager_v1_interface, 1, "ContentType");
+    PROTO::colorRepresentation = makeUnique<CColorRepresentationProtocol>(&wp_color_representation_manager_v1_interface, 1, "ColorRepresentation");
     PROTO::xdgTag              = makeUnique<CXDGToplevelTagProtocol>(&xdg_toplevel_tag_manager_v1_interface, 1, "XDGTag");
     PROTO::xdgBell             = makeUnique<CXDGSystemBellProtocol>(&xdg_system_bell_v1_interface, 1, "XDGBell");
     PROTO::hotkey              = makeUnique<CHotkeyProtocol>(&vicinae_hotkey_manager_v1_interface, 1, "Hotkey");
@@ -323,6 +325,7 @@ CProtocolManager::~CProtocolManager() {
     PROTO::inputCapture.reset();
     PROTO::hyprlandSurface.reset();
     PROTO::contentType.reset();
+    PROTO::colorRepresentation.reset();
     PROTO::colorManagement.reset();
     PROTO::xdgTag.reset();
     PROTO::xdgBell.reset();
@@ -397,6 +400,7 @@ bool CProtocolManager::isGlobalPrivileged(const wl_global* global) {
         PROTO::mesaDRM  ? PROTO::mesaDRM->getGlobal()   : nullptr,
         PROTO::linuxDma ? PROTO::linuxDma->getGlobal()  : nullptr,
 	PROTO::colorManagement ? PROTO::colorManagement->getGlobal() : nullptr,
+	PROTO::colorRepresentation->getGlobal(),
     };
     // clang-format on
 

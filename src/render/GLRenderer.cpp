@@ -197,10 +197,45 @@ SP<ITexture> CHyprGLRenderer::createTexture(uint32_t drmFormat, uint8_t* pixels,
 
 SP<ITexture> CHyprGLRenderer::createTexture(const Aquamarine::SDMABUFAttrs& attrs, bool opaque) {
     g_pHyprOpenGL->makeEGLCurrent();
+    if (attrs.format == DRM_FORMAT_NV12 || attrs.format == DRM_FORMAT_P010) {
+        if (attrs.planes != 2 || !NFormatUtils::isSupportedYUVModifier(attrs.modifier))
+            return nullptr;
+
+        auto lumaAttrs   = attrs;
+        lumaAttrs.format = attrs.format == DRM_FORMAT_P010 ? DRM_FORMAT_R16 : DRM_FORMAT_R8;
+        lumaAttrs.planes = 1;
+
+        auto chromaAttrs       = lumaAttrs;
+        chromaAttrs.format     = attrs.format == DRM_FORMAT_P010 ? DRM_FORMAT_GR1616 : DRM_FORMAT_GR88;
+        chromaAttrs.size       = {std::ceil(attrs.size.x / 2.0), std::ceil(attrs.size.y / 2.0)};
+        chromaAttrs.fds[0]     = attrs.fds[1];
+        chromaAttrs.offsets[0] = attrs.offsets[1];
+        chromaAttrs.strides[0] = attrs.strides[1];
+
+        auto luma = createTexture(lumaAttrs, true);
+        if (!luma)
+            return nullptr;
+
+        luma->m_chromaTexture = createTexture(chromaAttrs, true);
+        if (!luma->m_chromaTexture)
+            return nullptr;
+
+        luma->m_type      = TEXTURE_YUV;
+        luma->m_drmFormat = attrs.format;
+        luma->m_opaque    = true;
+        return luma;
+    }
+
+    if (NFormatUtils::isFormatYUV(attrs.format))
+        return nullptr;
+
     const auto image = g_pHyprOpenGL->createEGLImage(attrs);
     if (!image)
         return nullptr;
-    return makeShared<CGLTexture>(attrs, image, opaque);
+    auto texture = makeShared<CGLTexture>(attrs, image, opaque);
+    if (!texture->ok())
+        return nullptr;
+    return texture;
 }
 
 SP<ITexture> CHyprGLRenderer::createTexture(const int width, const int height, unsigned char* const data) {
