@@ -104,6 +104,7 @@ protocolnew("unstable/keyboard-shortcuts-inhibit" "keyboard-shortcuts-inhibit-un
 
 clientNew("pointer-warp" PROTOS "pointer-warp-v1" "xdg-shell")
 clientNew("surface-scale-transform" PROTOS "fractional-scale-v1" "xdg-shell")
+clientNew("subsurface-teardown" PROTOS "xdg-shell")
 clientNew("pointer-scroll" PROTOS "xdg-shell")
 clientNew("child-window" PROTOS "xdg-shell")
 clientNew("xdg-interactive" PROTOS "xdg-shell")
