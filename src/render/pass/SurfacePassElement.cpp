@@ -14,7 +14,14 @@
 using namespace Hyprutils::Utils;
 
 CSurfacePassElement::CSurfacePassElement(const CSurfacePassElement::SRenderData& data_) : m_data(data_) {
-    ;
+    if (!m_data.pWindow || !m_data.surface || m_data.mainSurface || !m_data.squishOversized || !m_data.pWindow->sizeAnimation()->isBeingAnimated())
+        return;
+
+    const auto REPORTED = m_data.pWindow->getReportedSize();
+    if (REPORTED.x == 0 || REPORTED.y == 0)
+        return;
+
+    m_data.localPos *= m_data.pWindow->size(Desktop::View::IGeometric::GEOMETRIC_CURRENT) / REPORTED;
 }
 
 CBox CSurfacePassElement::getTexBox() {
