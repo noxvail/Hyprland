@@ -32,6 +32,7 @@ in
     inputs.hyprgraphics.overlays.default
     inputs.hyprland-protocols.overlays.default
     inputs.hyprland-guiutils.overlays.default
+    inputs.hyprland-guiutils.inputs.hyprtoolkit.overlays.default
     inputs.hyprlang.overlays.default
     inputs.hyprutils.overlays.default
     inputs.hyprwayland-scanner.overlays.default
@@ -134,15 +135,15 @@ in
       (prev.glaze.override {
         enableSSL = false;
         enableInterop = false;
-    }).overrideAttrs
-      {
-        version = "7.2.0";
-        src = final.fetchFromGitHub {
-          owner = "stephenberry";
-          repo = "glaze";
-          tag = "v7.2.0";
-          hash = "sha256-f3NVRi3SXKo42hn0WCw7JsOK3EkdOVJIcuzhPorKjFY=";
+      }).overrideAttrs
+        {
+          version = "7.2.0";
+          src = final.fetchFromGitHub {
+            owner = "stephenberry";
+            repo = "glaze";
+            tag = "v7.2.0";
+            hash = "sha256-f3NVRi3SXKo42hn0WCw7JsOK3EkdOVJIcuzhPorKjFY=";
+          };
         };
-      };
   };
 }
