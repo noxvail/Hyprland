@@ -219,10 +219,12 @@ Mat3x3 NColorManagement::adaptBradford(Hyprgraphics::CColor::xy srcW, Hyprgraphi
 #define SRGB_SCALE 12.92
 #define SRGB_ALPHA 1.055
 
-#define BT1886_POW   (1.0 / 0.45)
-#define BT1886_CUT   0.018053968510807
-#define BT1886_SCALE 4.5
-#define BT1886_ALPHA (1.0 + 5.5 * BT1886_CUT)
+#define BT1886_POW 2.4
+
+#define XVYCC_POW   (1.0 / 0.45)
+#define XVYCC_CUT   0.018053968510807
+#define XVYCC_SCALE 4.5
+#define XVYCC_ALPHA (1.0 + 5.5 * XVYCC_CUT)
 
 // See http://car.france3.mars.free.fr/HD/INA-%2026%20jan%2006/SMPTE%20normes%20et%20confs/s240m.pdf
 #define ST240_POW   (1.0 / 0.45)
@@ -297,14 +299,27 @@ static RGBAColor tfInvExtSRGB(RGBAColor color) {
     }};
 }
 
-static RGBAColor tfInvBT1886(RGBAColor color) {
-    return tfInvLinPow(color, BT1886_POW, BT1886_CUT, BT1886_SCALE, BT1886_ALPHA);
+double NColorManagement::bt1886Eotf(double value, double minLuminance, double maxLuminance) {
+    const auto black = pow(std::max(minLuminance, 0.0), 1.0 / BT1886_POW);
+    const auto white = pow(std::max(maxLuminance, 0.0), 1.0 / BT1886_POW);
+    return pow(std::max(value * (white - black) + black, 0.0), BT1886_POW);
+}
+
+double NColorManagement::bt1886InverseEotf(double luminance, double minLuminance, double maxLuminance) {
+    const auto black = pow(std::max(minLuminance, 0.0), 1.0 / BT1886_POW);
+    const auto white = pow(std::max(maxLuminance, 0.0), 1.0 / BT1886_POW);
+    return (pow(std::max(luminance, 0.0), 1.0 / BT1886_POW) - black) / (white - black);
+}
+
+static RGBAColor tfInvBT1886(RGBAColor color, Render::STFRange range) {
+    for (uint i = 0; i <= 2; i++) {
+        color.v[i] = (bt1886Eotf(color.v[i], range.min, range.max) - range.min) / (range.max - range.min);
+    }
+    return color;
 }
 
 static RGBAColor tfInvXVYCC(RGBAColor color) {
-    // The inverse transfer function for XVYCC is the BT1886 transfer function mirrored around 0,
-    // same as what EXT sRGB is to sRGB.
-    const auto absColor = tfInvBT1886({{.r = abs(color.c.r), .g = abs(color.c.g), .b = abs(color.c.b), .a = color.c.a}});
+    const auto absColor = tfInvLinPow({{.r = abs(color.c.r), .g = abs(color.c.g), .b = abs(color.c.b), .a = color.c.a}}, XVYCC_POW, XVYCC_CUT, XVYCC_SCALE, XVYCC_ALPHA);
     return {{
         .r = absColor.c.r * sign(color.c.r),
         .g = absColor.c.g * sign(color.c.g),
@@ -357,14 +372,15 @@ static RGBAColor tfExtSRGB(RGBAColor color) {
     }};
 }
 
-static RGBAColor tfBT1886(RGBAColor color) {
-    return tfLinPow(color, BT1886_POW, BT1886_CUT, BT1886_SCALE, BT1886_ALPHA);
+static RGBAColor tfBT1886(RGBAColor color, Render::STFRange range) {
+    for (uint i = 0; i <= 2; i++) {
+        color.v[i] = bt1886InverseEotf(color.v[i] * (range.max - range.min) + range.min, range.min, range.max);
+    }
+    return color;
 }
 
 static RGBAColor tfXVYCC(RGBAColor color) {
-    // The transfer function for XVYCC is the BT1886 transfer function mirrored around 0,
-    // same as what EXT sRGB is to sRGB.
-    const auto absColor = tfBT1886({{.r = abs(color.c.r), .g = abs(color.c.g), .b = abs(color.c.b), .a = color.c.a}});
+    const auto absColor = tfLinPow({{.r = abs(color.c.r), .g = abs(color.c.g), .b = abs(color.c.b), .a = color.c.a}}, XVYCC_POW, XVYCC_CUT, XVYCC_SCALE, XVYCC_ALPHA);
     return {{
         .r = absColor.c.r * sign(color.c.r),
         .g = absColor.c.g * sign(color.c.g),
@@ -412,7 +428,7 @@ static RGBAColor tfInvLog(RGBAColor color, float mult, float min) {
     return color;
 }
 
-static RGBAColor toLinearRGB(RGBAColor color, eTransferFunction tf) {
+static RGBAColor toLinearRGB(RGBAColor color, eTransferFunction tf, Render::STFRange range) {
     switch (tf) {
         case CM_TRANSFER_FUNCTION_LINEAR: return color;
         case CM_TRANSFER_FUNCTION_EXT_LINEAR: return color;
@@ -421,7 +437,7 @@ static RGBAColor toLinearRGB(RGBAColor color, eTransferFunction tf) {
         case CM_TRANSFER_FUNCTION_GAMMA28: return tfGamma(color, 2.8);
         case CM_TRANSFER_FUNCTION_HLG: return tfInvHLG(color);
         case CM_TRANSFER_FUNCTION_EXT_SRGB: return tfInvExtSRGB(color);
-        case CM_TRANSFER_FUNCTION_BT1886: return tfInvBT1886(color);
+        case CM_TRANSFER_FUNCTION_BT1886: return tfInvBT1886(color, range);
         case CM_TRANSFER_FUNCTION_ST240: return tfInvST240(color);
         case CM_TRANSFER_FUNCTION_LOG_100: return tfLog(color, 2.0);
         case CM_TRANSFER_FUNCTION_LOG_316: return tfLog(color, 2.5);
@@ -432,7 +448,7 @@ static RGBAColor toLinearRGB(RGBAColor color, eTransferFunction tf) {
     }
 }
 
-static RGBAColor fromLinearRGB(RGBAColor color, eTransferFunction tf) {
+static RGBAColor fromLinearRGB(RGBAColor color, eTransferFunction tf, Render::STFRange range) {
     switch (tf) {
         case CM_TRANSFER_FUNCTION_EXT_LINEAR: return color;
         case CM_TRANSFER_FUNCTION_ST2084_PQ: return tfPQ(color);
@@ -440,7 +456,7 @@ static RGBAColor fromLinearRGB(RGBAColor color, eTransferFunction tf) {
         case CM_TRANSFER_FUNCTION_GAMMA28: return tfGamma(color, 1.0 / 2.8);
         case CM_TRANSFER_FUNCTION_HLG: return tfHLG(color);
         case CM_TRANSFER_FUNCTION_EXT_SRGB: return tfExtSRGB(color);
-        case CM_TRANSFER_FUNCTION_BT1886: return tfBT1886(color);
+        case CM_TRANSFER_FUNCTION_BT1886: return tfBT1886(color, range);
         case CM_TRANSFER_FUNCTION_ST240: return tfST240(color);
         case CM_TRANSFER_FUNCTION_LOG_100: return tfInvLog(color, 2.0, 0.01);
         case CM_TRANSFER_FUNCTION_LOG_316: return tfInvLog(color, 2.5, sqrt(10.0) / 1000.0);
@@ -466,7 +482,7 @@ static RGBAColor fromLinearNit(RGBAColor color, eTransferFunction tf, Render::ST
         color.v[i] = (color.v[i] - range.min * color.c.a) / (range.max - range.min);
     }
     color /= std::max(color.c.a, 0.001);
-    color = fromLinearRGB(color, tf);
+    color = fromLinearRGB(color, tf, range);
     color *= color.c.a;
     return color;
 }
@@ -495,7 +511,7 @@ RGBAColor NColorManagement::convertColor(RGBAColor color, PImageDescription srcD
                                        g_pHyprRenderer->m_renderData.pMonitor ? g_pHyprRenderer->m_renderData.pMonitor->m_sdrMaxLuminance : -1);
 
     color /= std::max(color.c.a, 0.001);
-    color = toLinearRGB(color, srcDesc->value().transferFunction);
+    color = toLinearRGB(color, settings.sourceTF, settings.srcTFRange);
     if (dstDesc->value().icc.present) {
         // color.rgb = applyIcc3DLut(color.rgb, iccLut3D, iccLutSize);
         color *= color.c.a;
