@@ -68,14 +68,14 @@ vec3 tfInvExtSRGB(vec3 color) {
     return sign(color) * tfInvSRGB(abs(color));
 }
 
-vec3 tfInvBT1886(vec3 color) {
-    return tfInvLinPow(color, BT1886_POW, BT1886_CUT, BT1886_SCALE, BT1886_ALPHA);
+vec3 tfInvBT1886(vec3 color, vec2 range) {
+    vec2 limits = pow(max(range, vec2(0.0)), vec2(1.0 / BT1886_POW));
+    vec3 nits = pow(max(color * (limits.y - limits.x) + limits.x, vec3(0.0)), vec3(BT1886_POW));
+    return (nits - range.x) / (range.y - range.x);
 }
 
 vec3 tfInvXVYCC(vec3 color) {
-    // The inverse transfer function for XVYCC is the BT1886 transfer function mirrored around 0,
-    // same as what EXT sRGB is to sRGB.
-    return sign(color) * tfInvBT1886(abs(color));
+    return sign(color) * tfInvLinPow(abs(color), XVYCC_POW, XVYCC_CUT, XVYCC_SCALE, XVYCC_ALPHA);
 }
 
 vec3 tfInvST240(vec3 color) {
@@ -111,21 +111,21 @@ vec3 tfExtSRGB(vec3 color) {
     return sign(color) * tfSRGB(abs(color));
 }
 
-vec3 tfBT1886(vec3 color) {
-    return tfLinPow(color, BT1886_POW, BT1886_CUT, BT1886_SCALE, BT1886_ALPHA);
+vec3 tfBT1886(vec3 color, vec2 range) {
+    vec2 limits = pow(max(range, vec2(0.0)), vec2(1.0 / BT1886_POW));
+    vec3 nits = color * (range.y - range.x) + range.x;
+    return (pow(max(nits, vec3(0.0)), vec3(1.0 / BT1886_POW)) - limits.x) / (limits.y - limits.x);
 }
 
 vec3 tfXVYCC(vec3 color) {
-    // The transfer function for XVYCC is the BT1886 transfer function mirrored around 0,
-    // same as what EXT sRGB is to sRGB.
-    return sign(color) * tfBT1886(abs(color));
+    return sign(color) * tfLinPow(abs(color), XVYCC_POW, XVYCC_CUT, XVYCC_SCALE, XVYCC_ALPHA);
 }
 
 vec3 tfST240(vec3 color) {
     return tfLinPow(color, ST240_POW, ST240_CUT, ST240_SCALE, ST240_ALPHA);
 }
 
-vec3 toLinearRGB(vec3 color, int tf) {
+vec3 toLinearRGB(vec3 color, int tf, vec2 range) {
     switch (tf) {
         case CM_TRANSFER_FUNCTION_LINEAR: return color;
         case CM_TRANSFER_FUNCTION_EXT_LINEAR: return color;
@@ -134,7 +134,7 @@ vec3 toLinearRGB(vec3 color, int tf) {
         case CM_TRANSFER_FUNCTION_GAMMA28: return pow(max(color, vec3(0.0)), vec3(2.8));
         case CM_TRANSFER_FUNCTION_HLG: return tfInvHLG(color);
         case CM_TRANSFER_FUNCTION_EXT_SRGB: return tfInvExtSRGB(color);
-        case CM_TRANSFER_FUNCTION_BT1886: return tfInvBT1886(color);
+        case CM_TRANSFER_FUNCTION_BT1886: return tfInvBT1886(color, range);
         case CM_TRANSFER_FUNCTION_ST240: return tfInvST240(color);
         case CM_TRANSFER_FUNCTION_LOG_100: return mix(exp((color - 1.0) * 2.0 * log(10.0)), vec3(0.0), lessThanEqual(color, vec3(0.0)));
         case CM_TRANSFER_FUNCTION_LOG_316: return mix(exp((color - 1.0) * 2.5 * log(10.0)), vec3(0.0), lessThanEqual(color, vec3(0.0)));
@@ -143,6 +143,10 @@ vec3 toLinearRGB(vec3 color, int tf) {
         case CM_TRANSFER_FUNCTION_SRGB:
         default: return tfInvSRGB(color);
     }
+}
+
+vec3 toLinearRGB(vec3 color, int tf) {
+    return toLinearRGB(color, tf, vec2(0.0, 1.0));
 }
 
 vec4 toLinear(vec4 color, int tf) {
@@ -160,7 +164,7 @@ vec4 toNit(vec4 color, vec2 range) {
     return color;
 }
 
-vec3 fromLinearRGB(vec3 color, int tf) {
+vec3 fromLinearRGB(vec3 color, int tf, vec2 range) {
     switch (tf) {
         case CM_TRANSFER_FUNCTION_EXT_LINEAR: return color;
         case CM_TRANSFER_FUNCTION_ST2084_PQ: return tfPQ(color);
@@ -168,7 +172,7 @@ vec3 fromLinearRGB(vec3 color, int tf) {
         case CM_TRANSFER_FUNCTION_GAMMA28: return pow(max(color, vec3(0.0)), vec3(1.0 / 2.8));
         case CM_TRANSFER_FUNCTION_HLG: return tfHLG(color);
         case CM_TRANSFER_FUNCTION_EXT_SRGB: return tfExtSRGB(color);
-        case CM_TRANSFER_FUNCTION_BT1886: return tfBT1886(color);
+        case CM_TRANSFER_FUNCTION_BT1886: return tfBT1886(color, range);
         case CM_TRANSFER_FUNCTION_ST240: return tfST240(color);
         case CM_TRANSFER_FUNCTION_LOG_100: return mix(1.0 + log(color) / log(10.0) / 2.0, vec3(0.0), lessThanEqual(color, vec3(0.01)));
         case CM_TRANSFER_FUNCTION_LOG_316: return mix(1.0 + log(color) / log(10.0) / 2.5, vec3(0.0), lessThanEqual(color, vec3(sqrt(10.0) / 1000.0)));
@@ -177,6 +181,10 @@ vec3 fromLinearRGB(vec3 color, int tf) {
         case CM_TRANSFER_FUNCTION_SRGB:
         default: return tfSRGB(color);
     }
+}
+
+vec3 fromLinearRGB(vec3 color, int tf) {
+    return fromLinearRGB(color, tf, vec2(0.0, 1.0));
 }
 
 vec4 fromLinear(vec4 color, int tf) {
@@ -195,7 +203,7 @@ vec4 fromLinearNit(vec4 color, int tf, vec2 range) {
 
     color.rgb = (color.rgb - range[0] * color.a) / (range[1] - range[0]); // @gulafaran
     color.rgb /= max(color.a, 0.001);
-    color.rgb = fromLinearRGB(color.rgb, tf);
+    color.rgb = fromLinearRGB(color.rgb, tf, range);
     color.rgb *= color.a;
     return color;
 }
@@ -232,7 +240,7 @@ vec4
     float finalAlpha  = sourceAlpha * additionalAlpha;
 
     pixColor.rgb /= max(sourceAlpha, 0.001);
-    pixColor.rgb = toLinearRGB(pixColor.rgb, srcTF);
+    pixColor.rgb = toLinearRGB(pixColor.rgb, srcTF, srcTFRange);
     
 #if USE_ICC
     pixColor.rgb = applyIcc3DLut(pixColor.rgb, iccLut3D, iccLutSize);
@@ -251,7 +259,7 @@ vec4
 #if USE_MIRROR
     // TODO HDR -> SDR tonemap
     vec4 mirrorColor = fromLinearNit(pixColor, CM_TRANSFER_FUNCTION_SRGB,
-                                     srcTF == CM_TRANSFER_FUNCTION_GAMMA22 || srcTF == CM_TRANSFER_FUNCTION_SRGB ? srcTFRange : vec2(SDR_MIN_LUMINANCE, SDR_MAX_LUMINANCE));
+                                     srcTF == CM_TRANSFER_FUNCTION_GAMMA22 || srcTF == CM_TRANSFER_FUNCTION_SRGB || srcTF == CM_TRANSFER_FUNCTION_BT1886 ? srcTFRange : vec2(SDR_MIN_LUMINANCE, SDR_MAX_LUMINANCE));
 #endif
     pixColor = fromLinearNit(pixColor, dstTF, dstTFRange);
 #if USE_SDR_MOD

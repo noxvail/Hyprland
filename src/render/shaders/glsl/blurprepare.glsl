@@ -21,7 +21,7 @@ vec4 blurPrepare(vec4 pixColor, float contrast, float brightness
     if (sourceTF == CM_TRANSFER_FUNCTION_ST2084_PQ) {
         pixColor.rgb /= sdrBrightnessMultiplier;
     }
-    pixColor.rgb = convertMatrix * toLinearRGB(pixColor.rgb, sourceTF);
+    pixColor.rgb = convertMatrix * toLinearRGB(pixColor.rgb, sourceTF, srcTFRange);
     pixColor     = toNit(pixColor, srcTFRange);
     pixColor     = fromLinearNit(pixColor, targetTF, dstTFRange);
 #endif
