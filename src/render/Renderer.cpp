@@ -1900,6 +1900,18 @@ static bool isHDR2SDR(const NColorManagement::SImageDescription& imageDescriptio
          targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_GAMMA22);
 }
 
+float Render::tonemapShaderMaxLuminance(eTransferFunction srcTF, eTransferFunction targetTF, float maxLuminance, float dstMaxLuminance, float srcRefLuminance,
+                                        float dstRefLuminance) {
+    const bool absoluteSource = srcTF == CM_TRANSFER_FUNCTION_ST2084_PQ || srcTF == CM_TRANSFER_FUNCTION_HLG || srcTF == CM_TRANSFER_FUNCTION_EXT_LINEAR;
+    const bool hdrTarget =
+        targetTF == CM_TRANSFER_FUNCTION_ST2084_PQ || targetTF == CM_TRANSFER_FUNCTION_HLG || (targetTF == CM_TRANSFER_FUNCTION_EXT_LINEAR && dstMaxLuminance > dstRefLuminance);
+
+    if (absoluteSource && hdrTarget)
+        return maxLuminance;
+
+    return maxLuminance * dstRefLuminance / srcRefLuminance;
+}
+
 void IHyprRenderer::clearCMSettingsCache() {
     m_cmSettingsCache.clear();
 }
@@ -1967,8 +1979,10 @@ SCMSettings IHyprRenderer::getCMSettings(const NColorManagement::PImageDescripti
 
         .needsTonemap            = tonemapMode != 0 && needsTonemap,
         .tonemapMode             = tonemapMode,
-        .maxLuminance            = needsTonemap && tonemapMode == 2 ? dstMaxLuminance :
-                                                                      maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
+        .maxLuminance            = needsTonemap && tonemapMode == 2 ?
+            dstMaxLuminance :
+            tonemapShaderMaxLuminance(srcTF, targetImageDescription->value().transferFunction, maxLuminance, dstMaxLuminance, imageDescription->value().luminances.reference,
+                                      targetImageDescription->value().luminances.reference),
         .dstMaxLuminance         = dstMaxLuminance,
         .dstPrimaries2XYZ        = toXYZ.mat(),
         .needsSDRmod             = needsMod,

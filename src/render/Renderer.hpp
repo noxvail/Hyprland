@@ -56,6 +56,9 @@ namespace Render {
     class IElementRenderer;
     class CRenderPass;
 
+    float tonemapShaderMaxLuminance(NColorManagement::eTransferFunction srcTF, NColorManagement::eTransferFunction targetTF, float maxLuminance, float dstMaxLuminance,
+                                    float srcRefLuminance, float dstRefLuminance);
+
     class IHyprRenderer {
       public:
         IHyprRenderer();
