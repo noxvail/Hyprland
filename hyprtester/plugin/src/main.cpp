@@ -1468,7 +1468,8 @@ static SDispatchResult checkLayerCommitDamage(std::string in) {
             if (layer->m_geometry.size() != surface->m_current.size)
                 return {.success = false, .error = "Layer geometry was not updated"};
 
-            layer->m_geometry = CBox{layer->m_geometry.pos(), Vector2D{}};
+            layer->m_geometry               = CBox{layer->m_geometry.pos(), Vector2D{}};
+            surface->m_current.bufferDamage = CRegion{CBox{{}, surface->m_current.bufferSize}};
             monitor->m_damage.rotate();
             monitor->m_output->needsFrame = false;
 
