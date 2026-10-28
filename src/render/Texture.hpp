@@ -16,6 +16,7 @@ namespace Render {
         TEXTURE_RGBX,         // discard A
         TEXTURE_3D_LUT,       // 3D LUT
         TEXTURE_EXTERNAL,     // EGLImage
+        TEXTURE_YUV,
     };
 
     class ITexture {
@@ -47,6 +48,7 @@ namespace Render {
 
         // CM
         NColorManagement::PImageDescription m_imageDescription;
+        SP<ITexture>                        m_chromaTexture;
 
         // TODO move to GLTexture
         GLuint m_texID   = 0;

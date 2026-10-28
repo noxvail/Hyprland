@@ -33,6 +33,7 @@ class CDRMSyncobjSurfaceResource;
 class CFifoResource;
 class CCommitTimerResource;
 class CColorManagementSurface;
+class CColorRepresentationSurface;
 class CContentType;
 
 class CWLCallbackResource {
@@ -117,6 +118,7 @@ class CWLSurfaceResource {
     WP<CFifoResource>                      m_fifo;        // may not be present
     WP<CCommitTimerResource>               m_commitTimer; // may not be present
     WP<CColorManagementSurface>            m_colorManagement;
+    WP<CColorRepresentationSurface>        m_colorRepresentation;
     WP<CContentType>                       m_contentType;
 
     void                                   breadthfirst(std::function<void(SP<CWLSurfaceResource>, const Vector2D&, void*)> fn, void* data);

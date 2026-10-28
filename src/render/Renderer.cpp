@@ -2116,7 +2116,8 @@ void IHyprRenderer::preBlurForCurrentMonitor(CRenderContext& ctx, const CRegion&
 static bool isSDR2HDR(CRenderContext& ctx, const NColorManagement::SImageDescription& imageDescription, const NColorManagement::SImageDescription& targetImageDescription) {
     // might be too strict
     return (imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_SRGB ||
-            imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_GAMMA22) &&
+            imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_GAMMA22 ||
+            imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_BT1886) &&
         (targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ ||
          targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_HLG ||
          (targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_EXT_LINEAR &&
@@ -2129,6 +2130,18 @@ static bool isHDR2SDR(const NColorManagement::SImageDescription& imageDescriptio
             imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_HLG) &&
         (targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_SRGB ||
          targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_GAMMA22);
+}
+
+float Render::tonemapShaderMaxLuminance(eTransferFunction srcTF, eTransferFunction targetTF, float maxLuminance, float dstMaxLuminance, float srcRefLuminance,
+                                        float dstRefLuminance) {
+    const bool absoluteSource = srcTF == CM_TRANSFER_FUNCTION_ST2084_PQ || srcTF == CM_TRANSFER_FUNCTION_HLG || srcTF == CM_TRANSFER_FUNCTION_EXT_LINEAR;
+    const bool hdrTarget =
+        targetTF == CM_TRANSFER_FUNCTION_ST2084_PQ || targetTF == CM_TRANSFER_FUNCTION_HLG || (targetTF == CM_TRANSFER_FUNCTION_EXT_LINEAR && dstMaxLuminance > dstRefLuminance);
+
+    if (absoluteSource && hdrTarget)
+        return maxLuminance;
+
+    return maxLuminance * dstRefLuminance / srcRefLuminance;
 }
 
 void IHyprRenderer::clearCMSettingsCache(CRenderContext& ctx) {
@@ -2154,9 +2167,10 @@ SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManage
     const int                           tonemapMode = shouldUseSurface && ctx.m_data.currentWindow ? ctx.m_data.currentWindow->m_ruleApplicator->tonemap().valueOr(1) : 1;
 
     if (shouldUseSurface && ctx.m_data.surface.valid() &&
-        (imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_GAMMA22 || imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_SRGB)) {
+        (imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_GAMMA22 || imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_SRGB ||
+         imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_BT1886)) {
         if (ctx.m_data.surface->m_colorManagement.valid()) {
-            if (sdrEOTF == NTransferFunction::TF_FORCED_GAMMA22 && imageDescription->value().transferFunction == NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_SRGB)
+            if (sdrEOTF == NTransferFunction::TF_FORCED_GAMMA22)
                 srcTF = NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_GAMMA22;
             else
                 srcTF = imageDescription->value().transferFunction;
@@ -2198,8 +2212,10 @@ SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManage
 
         .needsTonemap            = tonemapMode != 0 && needsTonemap,
         .tonemapMode             = tonemapMode,
-        .maxLuminance            = needsTonemap && tonemapMode == 2 ? dstMaxLuminance :
-                                                                      maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
+        .maxLuminance            = needsTonemap && tonemapMode == 2 ?
+            dstMaxLuminance :
+            tonemapShaderMaxLuminance(srcTF, targetImageDescription->value().transferFunction, maxLuminance, dstMaxLuminance, imageDescription->value().luminances.reference,
+                                      targetImageDescription->value().luminances.reference),
         .dstMaxLuminance         = dstMaxLuminance,
         .dstPrimaries2XYZ        = toXYZ.mat(),
         .needsSDRmod             = needsMod,

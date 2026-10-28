@@ -332,7 +332,8 @@ void CLayerSurface::onCommit() {
         PMONITOR->m_blurFBDirty = true;
 
     CBox geomFixed = {m_geometry.x, m_geometry.y, m_geometry.width, m_geometry.height};
-    g_pHyprRenderer->damageBox(geomFixed);
+    if (m_alpha.getTotal() != 0.F || m_alpha.isBeingAnimated())
+        g_pHyprRenderer->damageBox(geomFixed);
 
     if (m_layerSurface->m_current.committed != 0) {
         if (m_layerSurface->m_current.committed & CLayerShellResource::eCommittedState::STATE_LAYER && m_layerSurface->m_current.layer != m_layer) {
@@ -435,7 +436,8 @@ void CLayerSurface::onCommit() {
 
     m_keyboardInteractivity = m_layerSurface->m_current.keyboardInteractivity;
 
-    g_pHyprRenderer->damageSurface(m_wlSurface->resource(), m_position.x, m_position.y);
+    if (m_alpha.getTotal() != 0.F || m_alpha.isBeingAnimated())
+        g_pHyprRenderer->damageSurface(m_wlSurface->resource(), m_position.x, m_position.y);
 
     updateSurfaceScaleTransformDetails();
 }

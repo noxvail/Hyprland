@@ -8,6 +8,7 @@
 #include <numbers>
 #include <random>
 #include <pango/pangocairo.h>
+#include "../helpers/cm/YUVConversion.hpp"
 #include "OpenGL.hpp"
 #include "../desktop/view/window/WindowPresentation.hpp"
 #include "Renderer.hpp"
@@ -472,7 +473,7 @@ CHyprOpenGLImpl::~CHyprOpenGLImpl() {
         gbm_device_destroy(m_gbmDevice);
 }
 
-std::optional<std::vector<uint64_t>> CHyprOpenGLImpl::getModsForFormat(EGLint format) {
+std::optional<std::vector<uint64_t>> CHyprOpenGLImpl::getModsForFormat(EGLint format, bool allowUnreportedLinear) {
     // TODO: return std::expected when clang supports it
 
     if (!m_exts.EXT_image_dma_buf_import_modifiers)
@@ -515,7 +516,7 @@ std::optional<std::vector<uint64_t>> CHyprOpenGLImpl::getModsForFormat(EGLint fo
     }
 
     // if the driver doesn't mark linear as external, add it. It's allowed unless the driver says otherwise. (e.g. nvidia)
-    if (!linearIsExternal && std::ranges::find(mods, DRM_FORMAT_MOD_LINEAR) == mods.end())
+    if (allowUnreportedLinear && !linearIsExternal && std::ranges::find(mods, DRM_FORMAT_MOD_LINEAR) == mods.end())
         result.push_back(DRM_FORMAT_MOD_LINEAR);
 
     return result;
@@ -564,12 +565,23 @@ void CHyprOpenGLImpl::initDRMFormats() {
     dmaFormats.reserve(formats.size());
 
     for (auto const& fmt : formats) {
-        // Do not advertise YUV until the renderer supports it.
-        if (NFormatUtils::isFormatYUV(fmt))
-            continue;
-
         std::vector<uint64_t> mods;
-        if (!DISABLE_MODS) {
+        const bool            yuv = NFormatUtils::isFormatYUV(fmt);
+        if (yuv) {
+            if (fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_P010)
+                continue;
+
+            const auto luma   = getModsForFormat(fmt == DRM_FORMAT_P010 ? DRM_FORMAT_R16 : DRM_FORMAT_R8, false);
+            const auto chroma = getModsForFormat(fmt == DRM_FORMAT_P010 ? DRM_FORMAT_GR1616 : DRM_FORMAT_GR88, false);
+            if (!luma || !chroma)
+                continue;
+
+            mods = NFormatUtils::intersectYUVModifiers(*luma, *chroma);
+            if (DISABLE_MODS)
+                std::erase_if(mods, [](uint64_t modifier) { return modifier != DRM_FORMAT_MOD_LINEAR; });
+            if (mods.empty())
+                continue;
+        } else if (!DISABLE_MODS) {
             auto ret = getModsForFormat(fmt);
             if (!ret.has_value())
                 continue;
@@ -580,8 +592,8 @@ void CHyprOpenGLImpl::initDRMFormats() {
 
         m_hasModifiers = m_hasModifiers || !mods.empty();
 
-        // EGL can always do implicit modifiers.
-        mods.push_back(DRM_FORMAT_MOD_INVALID);
+        if (!yuv)
+            mods.push_back(DRM_FORMAT_MOD_INVALID);
 
         dmaFormats.push_back(SDRMFormat{
             .drmFormat = fmt,
@@ -1435,6 +1447,7 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(CRenderContext& ctx, SP<ITexture
     switch (texType) {
         case TEXTURE_RGBA: shaderFeatures |= SH_FEAT_RGBA; break;
         case TEXTURE_RGBX: shaderFeatures &= ~SH_FEAT_RGBA; break;
+        case TEXTURE_YUV: shaderFeatures |= SH_FEAT_YUV; break;
 
         // TODO set correct features
         case TEXTURE_EXTERNAL: shader = getShaderVariant(SH_FRAG_EXT, SH_FEAT_ROUNDING | SH_FEAT_DISCARD | SH_FEAT_TINT | globalFeatures(ctx)); break; // might be unused
@@ -1520,8 +1533,20 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(CRenderContext& ctx, SP<ITexture
         shaderFeatures |= SH_FEAT_ROUNDING;
 
     if (!skipCM) {
-        const auto settings = g_pHyprRenderer->getCMSettings(ctx, SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
-                                                             ctx.m_data.pMonitor->m_sdrMinLuminance, ctx.m_data.pMonitor->m_sdrMaxLuminance, true);
+        auto settings = g_pHyprRenderer->getCMSettings(ctx, SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
+                                                       ctx.m_data.pMonitor->m_sdrMinLuminance, ctx.m_data.pMonitor->m_sdrMaxLuminance, true);
+
+        if (ctx.m_data.currentWindow) {
+            const auto PWINDOW                 = ctx.m_data.currentWindow.lock();
+            const auto HDR_REFERENCE_LUMINANCE = PWINDOW->m_ruleApplicator->hdrReferenceLuminance().valueOrDefault();
+            const auto HDR_REFERENCE_SCALE     = SOURCE_IMAGE_DESCRIPTION->value().hdrReferenceWhiteScale(HDR_REFERENCE_LUMINANCE);
+
+            if (HDR_REFERENCE_SCALE != 1.F) {
+                settings.srcTFRange.min *= HDR_REFERENCE_SCALE;
+                settings.srcTFRange.max *= HDR_REFERENCE_SCALE;
+                settings.maxLuminance *= HDR_REFERENCE_SCALE;
+            }
+        }
 
         shaderFeatures |= SH_FEAT_CM;
 
@@ -1547,6 +1572,23 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(CRenderContext& ctx, SP<ITexture
         if (!shader)
             shader = getShaderVariant(SH_FRAG_SURFACE, shaderFeatures | globalFeatures(ctx));
         shader = useShader(shader);
+    }
+
+    if (texType == TEXTURE_YUV) {
+        const auto conversion =
+            getYUVConversion(tex->m_drmFormat, surface.valid() ? surface->m_current.colorRepresentation : SColorRepresentation{}, tex->m_size, tex->m_chromaTexture->m_size);
+        shader->setUniformInt(SHADER_CHROMA_TEX, 3);
+        shader->setUniformMatrix3fv(SHADER_YUV_MATRIX, 1, false, conversion.matrix);
+        shader->setUniformFloat3(SHADER_YUV_OFFSET, conversion.offset[0], conversion.offset[1], conversion.offset[2]);
+        shader->setUniformFloat2(SHADER_CHROMA_SCALE, conversion.chromaScale.x, conversion.chromaScale.y);
+        shader->setUniformFloat2(SHADER_CHROMA_OFFSET, conversion.chromaOffset.x, conversion.chromaOffset.y);
+        setActiveTexture(GL_TEXTURE3);
+        tex->m_chromaTexture->bind();
+        tex->m_chromaTexture->setTexParameter(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        tex->m_chromaTexture->setTexParameter(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        tex->m_chromaTexture->setTexParameter(GL_TEXTURE_MIN_FILTER, ctx.m_data.useNearestNeighbor ? GL_NEAREST : tex->minFilter);
+        tex->m_chromaTexture->setTexParameter(GL_TEXTURE_MAG_FILTER, ctx.m_data.useNearestNeighbor ? GL_NEAREST : tex->magFilter);
+        setActiveTexture(GL_TEXTURE0);
     }
 
     shader->setUniformFloat(SHADER_ALPHA, alpha);

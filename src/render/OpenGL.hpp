@@ -347,7 +347,7 @@ namespace Render::GL {
         GLint                                                m_pressedHistoryTouched   = 0;
 
         //
-        std::optional<std::vector<uint64_t>> getModsForFormat(EGLint format);
+        std::optional<std::vector<uint64_t>> getModsForFormat(EGLint format, bool allowUnreportedLinear = true);
 
         void passCMUniforms(WP<CShader>, const NColorManagement::PImageDescription imageDescription, const NColorManagement::PImageDescription targetImageDescription,
                             bool modifySDR, float sdrMinLuminance, int sdrMaxLuminance, const SCMSettings& settings);

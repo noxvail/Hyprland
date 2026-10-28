@@ -27,6 +27,8 @@
 #include <src/desktop/rule/layerRule/LayerRuleEffectContainer.hpp>
 #include <src/desktop/rule/windowRule/WindowRuleApplicator.hpp>
 #include <src/desktop/view/LayerSurface.hpp>
+#include <src/protocols/LayerShell.hpp>
+#include <src/protocols/core/Compositor.hpp>
 #include <src/desktop/view/window/WindowFullscreenPolicy.hpp>
 #include <src/desktop/view/window/WindowPresentation.hpp>
 #include <src/desktop/state/ViewState.hpp>
@@ -1428,6 +1430,72 @@ static SDispatchResult checkPointerFocusWindow(std::string in) {
     return {};
 }
 
+static SDispatchResult checkLayerCommitDamage(std::string in) {
+    for (const auto& layer : Desktop::layerState()->layers()) {
+        if (layer->m_namespace != in)
+            continue;
+
+        const auto  monitor = layer->m_monitor.lock();
+        const auto  surface = layer->wlSurface()->resource();
+        const auto& alpha   = layer->alpha()[Desktop::View::LS_ALPHA_FADE];
+        if (!monitor || !surface)
+            return {.success = false, .error = "Layer has no monitor or surface"};
+
+        const auto  originalAlpha  = alpha->value();
+        const auto  originalSize   = surface->m_current.size;
+        const auto  originalDamage = surface->m_current.bufferDamage;
+        CScopeGuard restore        = {[&] {
+            alpha->setValueAndWarp(originalAlpha);
+            surface->m_current.size         = originalSize;
+            surface->m_current.bufferDamage = originalDamage;
+            layer->onCommit();
+            monitor->m_damage.damageEntire();
+            monitor->scheduleFrame();
+        }};
+
+        for (const auto opacity : {0.F, 0.5F, 1.F}) {
+            alpha->setValueAndWarp(opacity);
+            surface->m_current.size.y += 1;
+            surface->m_current.bufferDamage = CRegion{CBox{{}, surface->m_current.bufferSize}};
+            monitor->m_damage.rotate();
+            monitor->m_output->needsFrame = false;
+
+            layer->onCommit();
+
+            const bool expectedDamage = opacity != 0.F;
+            if (monitor->m_damage.hasChanged() != expectedDamage || monitor->m_output->needsFrame != expectedDamage)
+                return {.success = false, .error = std::format("Unexpected layer commit damage at opacity {}", opacity)};
+            if (layer->m_geometry.size() != surface->m_current.size)
+                return {.success = false, .error = "Layer geometry was not updated"};
+
+            layer->m_geometry = CBox{layer->m_geometry.pos(), Vector2D{}};
+            monitor->m_damage.rotate();
+            monitor->m_output->needsFrame = false;
+
+            layer->onCommit();
+
+            if (monitor->m_damage.hasChanged() != expectedDamage || monitor->m_output->needsFrame != expectedDamage)
+                return {.success = false, .error = std::format("Unexpected surface damage at opacity {}", opacity)};
+        }
+
+        alpha->setValueAndWarp(0.F);
+        *alpha = 1.F;
+        if (!alpha->isBeingAnimated())
+            return {.success = false, .error = "Layer fade did not start"};
+        monitor->m_damage.rotate();
+        monitor->m_output->needsFrame = false;
+
+        layer->onCommit();
+
+        if (!monitor->m_damage.hasChanged() || !monitor->m_output->needsFrame)
+            return {.success = false, .error = "Fading layer did not schedule damage"};
+
+        return {};
+    }
+
+    return {.success = false, .error = "Layer under test not found"};
+}
+
 static SDispatchResult checkPointerFocusLayer(std::string in) {
     const auto POINTERSURF = g_pSeatManager->m_state.pointerFocus.lock();
 
@@ -1816,6 +1884,10 @@ static int luaCheckPointerFocusWindow(lua_State* L) {
     return luaResult(L, ::checkPointerFocusWindow(luaL_checkstring(L, 1)));
 }
 
+static int luaCheckLayerCommitDamage(lua_State* L) {
+    return luaResult(L, ::checkLayerCommitDamage(luaL_checkstring(L, 1)));
+}
+
 static int luaCheckPointerFocusLayer(lua_State* L) {
     return luaResult(L, ::checkPointerFocusLayer(luaL_checkstring(L, 1)));
 }
@@ -1891,6 +1963,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     addLuaFn("check_window_rule", ::luaCheckWindowRule);
     addLuaFn("add_layer_rule", ::luaAddLayerRule);
     addLuaFn("check_layer_rule", ::luaCheckLayerRule);
+    addLuaFn("check_layer_commit_damage", ::luaCheckLayerCommitDamage);
     addLuaFn("check_pointer_focus_window", ::luaCheckPointerFocusWindow);
     addLuaFn("check_pointer_focus_layer", ::luaCheckPointerFocusLayer);
     addLuaFn("check_pointer_focus_none", ::luaCheckPointerFocusNone);
