@@ -3,6 +3,7 @@
 #include <hyprutils/cli/Logger.hpp>
 #include <source_location>
 #include <utility>
+#include <optional>
 
 #include "../../helpers/memory/Memory.hpp"
 #include "../../helpers/env/Env.hpp"
@@ -28,6 +29,8 @@ namespace Log {
 
         return name;
     }
+
+    class CLoggerTestAccessor;
 
     class CLogger {
       public:
@@ -59,11 +62,23 @@ namespace Log {
         Hyprutils::CLI::CLogger& hu();
 
       private:
-        void                    recheckCfg();
+        void recheckCfg();
+        void configureLogs(bool logsEnabled, bool fileLogsEnabled, bool stdoutEnabled);
 
-        Hyprutils::CLI::CLogger m_logger;
-        bool                    m_logsEnabled = true;
-        bool                    m_isTrace     = false;
+        struct SFileIdentity {
+            uint64_t device = 0;
+            uint64_t inode  = 0;
+        };
+
+        Hyprutils::CLI::CLogger      m_logger;
+        std::string                  m_logFile;
+        std::string                  m_activeLogFile;
+        std::optional<SFileIdentity> m_bootstrapLog;
+        bool                         m_firstConfig = true;
+        bool                         m_logsEnabled = true;
+        bool                         m_isTrace     = false;
+
+        friend class CLoggerTestAccessor;
     };
 
     inline UP<CLogger> logger = makeUnique<CLogger>();
