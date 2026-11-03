@@ -280,12 +280,24 @@ namespace NColorManagement {
             return primaries;
         }
 
+        bool isHDRLike() const {
+            return transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ || transferFunction == CM_TRANSFER_FUNCTION_HLG || transferFunction == CM_TRANSFER_FUNCTION_EXT_LINEAR ||
+                isWindows;
+        }
+
+        float hdrReferenceWhiteScale(uint32_t referenceLuminance) const {
+            if (!isHDRLike() || referenceLuminance == 0 || luminances.reference == 0)
+                return 1.F;
+
+            return referenceLuminance / static_cast<float>(luminances.reference);
+        }
+
         float getTFMinLuminance(float sdrMinLuminance = -1.0f) const {
             switch (transferFunction) {
                 case CM_TRANSFER_FUNCTION_EXT_LINEAR: return isWindows ? 0.0f : luminances.min;
                 case CM_TRANSFER_FUNCTION_ST2084_PQ:
                 case CM_TRANSFER_FUNCTION_HLG: return HDR_MIN_LUMINANCE;
-                case CM_TRANSFER_FUNCTION_BT1886: return 0.01;
+                case CM_TRANSFER_FUNCTION_BT1886: return sdrMinLuminance >= 0 ? sdrMinLuminance : 0.01;
                 case CM_TRANSFER_FUNCTION_GAMMA22:
                 case CM_TRANSFER_FUNCTION_GAMMA28:
                 case CM_TRANSFER_FUNCTION_ST240:
@@ -306,7 +318,7 @@ namespace NColorManagement {
                     return isWindows ? SDR_MAX_LUMINANCE : luminances.max;
                 case CM_TRANSFER_FUNCTION_ST2084_PQ: return HDR_MAX_LUMINANCE;
                 case CM_TRANSFER_FUNCTION_HLG: return HLG_MAX_LUMINANCE;
-                case CM_TRANSFER_FUNCTION_BT1886: return 100;
+                case CM_TRANSFER_FUNCTION_BT1886: return sdrMaxLuminance >= 0 ? sdrMaxLuminance : 100;
                 case CM_TRANSFER_FUNCTION_GAMMA22:
                 case CM_TRANSFER_FUNCTION_GAMMA28:
                 case CM_TRANSFER_FUNCTION_ST240:
@@ -325,7 +337,7 @@ namespace NColorManagement {
                 case CM_TRANSFER_FUNCTION_EXT_LINEAR: return isWindows ? HDR_REF_LUMINANCE : luminances.reference;
                 case CM_TRANSFER_FUNCTION_ST2084_PQ:
                 case CM_TRANSFER_FUNCTION_HLG: return HDR_REF_LUMINANCE;
-                case CM_TRANSFER_FUNCTION_BT1886: return 100;
+                case CM_TRANSFER_FUNCTION_BT1886: return sdrRefLuminance >= 0 ? sdrRefLuminance : 100;
                 case CM_TRANSFER_FUNCTION_GAMMA22:
                 case CM_TRANSFER_FUNCTION_GAMMA28:
                 case CM_TRANSFER_FUNCTION_ST240:
@@ -382,6 +394,9 @@ namespace NColorManagement {
     };
 
     using PImageDescription = WP<const CImageDescription>;
+
+    double            bt1886Eotf(double value, double minLuminance, double maxLuminance);
+    double            bt1886InverseEotf(double luminance, double minLuminance, double maxLuminance);
 
     RGBAColor         convertColor(RGBAColor color, PImageDescription srcDesc, PImageDescription dstDesc, const Render::SCMSettings& settings);
     CHyprColor        convertColor(const CHyprColor& color, PImageDescription srcDesc, PImageDescription dstDesc, const Render::SCMSettings& settings);

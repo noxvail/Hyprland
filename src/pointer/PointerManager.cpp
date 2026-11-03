@@ -725,7 +725,8 @@ SP<Aquamarine::IBuffer> CPointerManager::renderHWCursorBuffer(SP<CPointerManager
     LOG(Log::TRACE, "[pointer] monitor: {}, size: {}, hw buf: {}, scale: {:.2f}, monscale: {:.2f}, xbox: {}", state->monitor->m_name, image.size, cursorSize, image.scale,
         state->monitor->m_scale, xbox.size());
 
-    g_pHyprRenderer->draw(ctx, CTexPassElement::SRenderData{.tex = texture, .box = xbox}, damageRegion);
+    g_pHyprRenderer->draw(
+        ctx, CTexPassElement::SRenderData{.tex = texture, .box = xbox, .surface = m_currentCursorImage.surface ? m_currentCursorImage.surface->resource() : nullptr}, damageRegion);
 
     finishing = true;
     g_pHyprRenderer->endRender();
@@ -769,8 +770,9 @@ void CPointerManager::renderSoftwareCursorsFor(Render::CRenderContext& ctx, PHLM
     box.y = std::round(box.y);
 
     CTexPassElement::SRenderData data;
-    data.tex = texture;
-    data.box = box.round();
+    data.tex     = texture;
+    data.surface = m_currentCursorImage.surface ? m_currentCursorImage.surface->resource() : nullptr;
+    data.box     = box.round();
 
     g_pHyprRenderer->addPassElement(ctx, makeUnique<CTexPassElement>(std::move(data)));
 

@@ -106,9 +106,24 @@ bool NFormatUtils::isFormatYUV(uint32_t drmFormat) {
         case DRM_FORMAT_YUV422:
         case DRM_FORMAT_YVU422:
         case DRM_FORMAT_YUV444:
-        case DRM_FORMAT_YVU444: return true;
+        case DRM_FORMAT_YVU444:
+        case DRM_FORMAT_Y8:
+        case DRM_FORMAT_XYYY2101010: return true;
         default: return false;
     }
+}
+
+bool NFormatUtils::isSupportedYUVModifier(uint64_t modifier) {
+    return modifier == DRM_FORMAT_MOD_LINEAR || (IS_AMD_FMT_MOD(modifier) && !AMD_FMT_MOD_GET(DCC, modifier));
+}
+
+std::vector<uint64_t> NFormatUtils::intersectYUVModifiers(std::span<const uint64_t> luma, std::span<const uint64_t> chroma) {
+    std::vector<uint64_t> result;
+    for (const auto modifier : luma) {
+        if (isSupportedYUVModifier(modifier) && std::ranges::find(chroma, modifier) != chroma.end())
+            result.push_back(modifier);
+    }
+    return result;
 }
 
 bool NFormatUtils::isShmBufferLayoutValid(DRMFormat drmFormat, const Vector2D& size, int32_t stride, int32_t offset, size_t poolSize) {

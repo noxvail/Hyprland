@@ -129,7 +129,7 @@ customStdenv.mkDerivation (finalAttrs: {
             ../systemd
             ../VERSION
             (fs.fileFilter (file: file.hasExt "1") ../docs)
-            (fs.fileFilter (file: file.hasExt "conf" || file.hasExt "in" || file.hasExt "lua" ) ../example)
+            (fs.fileFilter (file: file.hasExt "conf" || file.hasExt "in" || file.hasExt "lua") ../example)
             (fs.fileFilter (file: file.hasExt "sh") ../scripts)
             (fs.fileFilter (file: file.name == "CMakeLists.txt") ../.)
             (optional withTests [
@@ -271,6 +271,7 @@ customStdenv.mkDerivation (finalAttrs: {
       install hyprtester/keyboard-modifiers -t $out/bin
       install hyprtester/fullscreen-with-monitor -t $out/bin
       install hyprtester/surface-scale-transform -t $out/bin
+      install hyprtester/subsurface-teardown -t $out/bin
       install hyprtester/xdg-interactive -t $out/bin
       install hyprtester/xdg-activation -t $out/bin
       install hyprtester/xdg-initial-maximize -t $out/bin

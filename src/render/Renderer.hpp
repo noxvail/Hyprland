@@ -78,6 +78,9 @@ namespace Render {
         GL::CFramebufferBindingGuard m_bindings;
     };
 
+    float tonemapShaderMaxLuminance(NColorManagement::eTransferFunction srcTF, NColorManagement::eTransferFunction targetTF, float maxLuminance, float dstMaxLuminance,
+                                    float srcRefLuminance, float dstRefLuminance);
+
     class IHyprRenderer {
       public:
         IHyprRenderer();

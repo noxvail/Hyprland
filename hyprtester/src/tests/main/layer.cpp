@@ -554,3 +554,12 @@ TEST_CASE(windowRefocusRestoresKeyboardFocusAfterSurfaceFocusCleared) {
 
     OK(getFromSocket(std::format("/eval hl.plugin.test.check_keyboard_focus_window('{}')", WINDOW_CLASS)));
 }
+
+TEST_CASE(layerCommitDamageRespectsOpacity) {
+    static constexpr const char* LAYER_NAMESPACE = "damage-layer";
+
+    ASSERT(spawnLayer(LAYER_NAMESPACE, {"--edge=top", "--layer=top", "--lines=48px", "--focus-policy=not-allowed"}), true);
+    Tests::waitUntilLayersN(1);
+
+    OK(getFromSocket(std::format("/eval hl.plugin.test.check_layer_commit_damage('{}')", LAYER_NAMESPACE)));
+}

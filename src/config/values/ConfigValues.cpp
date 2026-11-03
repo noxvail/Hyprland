@@ -741,6 +741,7 @@ std::vector<SP<IValue>> Values::getConfigValues() {
         MS<Bool>("debug:disable_time", "disables time logging", true),
         MS<Int>("debug:damage_tracking", "redraw only the needed bits of the display.", 2, {.min = 0, .max = 2, .map = OptionMap{{"disable", 0}, {"monitor", 1}, {"full", 2}}}),
         MS<Bool>("debug:enable_stdout_logs", "enables logging to stdout", false),
+        MS<Bool>("debug:enable_file_logs", "enables logging to the session log file; re-enabling truncates the file", true),
         MS<Int>("debug:manual_crash", "set to 1 and then back to 0 to crash Hyprland.", 0, {.min = 0, .max = 1}),
         MS<Bool>("debug:suppress_errors", "if true, do not display config file parsing errors.", false),
         MS<Bool>("debug:disable_scale_checks", "disables verification of the scale factors.", false),
@@ -818,7 +819,7 @@ std::vector<SP<IValue>> Values::getConfigValues() {
                  {.refresh = Supplementary::REFRESH_LAYOUTS}),
         MS<Float>("scrolling:column_width", "the default width of a column.", 0.5, {.min = 0.1, .max = 1.0}),
         MS<Int>("scrolling:focus_fit_method", "When a column is focused, what method should be used to bring it into view", 1,
-                {.min = 0, .max = 1, .map = OptionMap{{"center", 0}, {"fit", 1}}}),
+                {.min = 0, .max = 2, .map = OptionMap{{"center", 0}, {"fit", 1}, {"center_clamped", 2}}}),
         MS<Int>("scrolling:follow_focus",
                 "Behaviour of the scrolling tape when a window is in focus. 0: Focus doesn't cause tape move. 1: Focus may cause tape move, mouse click always moves the tape. 2: "
                 "Focus may cause tape move.",

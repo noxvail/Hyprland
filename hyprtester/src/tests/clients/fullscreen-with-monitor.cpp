@@ -26,6 +26,7 @@ namespace {
         CFsMonClient();
         ~CFsMonClient();
         bool  isFullscreen();
+        bool  requestMaximize(bool enabled);
         void  requestFullscreen();
         void  requestUnFullscreen();
         pid_t pid();
@@ -216,5 +217,82 @@ TEST_CASE(clientFullscreenRequestDefaultHandled) {
         const auto str = getFromSocket("/activewindow");
         EXPECT_CONTAINS(str, "fullscreen: 0");
         EXPECT_CONTAINS(str, "fullscreenClient: 0");
+    }
+}
+
+bool CFsMonClient::requestMaximize(bool enabled) {
+    const std::string COMMAND = enabled ? "maximize\n" : "unmaximize\n";
+    if (write(writeFd.get(), COMMAND.data(), COMMAND.size()) != static_cast<ssize_t>(COMMAND.size()))
+        return false;
+
+    if (poll(&fds, 1, 2000) != 1 || !(fds.revents & POLLIN))
+        return false;
+
+    readBuf.fill(0);
+    const auto READ = read(readFd.get(), readBuf.data(), readBuf.size() - 1);
+    return READ > 0 && std::string_view(readBuf.data(), READ) == "maximized\n";
+}
+
+SUBTEST(fullscreenSurvivesMaximizeRequests, bool compositorRequested, bool floating, bool layoutHandled) {
+    OK(getFromSocket("r/eval hl.config({ general = { layout = 'scrolling' } })"));
+    OK(getFromSocket(std::format("r/eval hl.config({{ binds = {{ client_requested_fs_uses_layout_handler = {} }} }})", layoutHandled)));
+
+    std::optional<CFsMonClient> client;
+    try {
+        client.emplace();
+    } catch (...) { FAIL_TEST("Failed to start fullscreen-with-monitor client"); }
+
+    if (floating)
+        OK(getFromSocket("/dispatch hl.dsp.window.float({ action = 'set' })"));
+
+    if (compositorRequested)
+        OK(getFromSocket(std::format("/dispatch hl.dsp.window.fullscreen({{ action = 'set', layout_aware = {} }})", layoutHandled)));
+    else
+        client->requestFullscreen();
+
+    EXPECT(client->isFullscreen(), true);
+
+    for (bool maximized : {true, false, true, false}) {
+        EXPECT(client->requestMaximize(maximized), true);
+        EXPECT(client->isFullscreen(), true);
+        const auto WINDOW = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(WINDOW, "fullscreen: 2");
+        EXPECT_CONTAINS(WINDOW, "fullscreenClient: 2");
+        EXPECT_CONTAINS(WINDOW, std::format("fullscreenHandler: {}", !floating && layoutHandled ? "scrolling" : "default"));
+    }
+
+    client->requestUnFullscreen();
+    EXPECT(client->isFullscreen(), false);
+    EXPECT_CONTAINS(getFromSocket("/activewindow"), "fullscreen: 0");
+    EXPECT_CONTAINS(getFromSocket("/activewindow"), "fullscreenClient: 0");
+}
+
+TEST_CASE(clientFullscreenSurvivesMaximizeRequests) {
+    for (bool floating : {false, true}) {
+        for (bool layoutHandled : {false, true}) {
+            CALL_SUBTEST(fullscreenSurvivesMaximizeRequests, false, floating, layoutHandled);
+        }
+    }
+}
+
+TEST_CASE(compositorFullscreenSurvivesMaximizeRequests) {
+    for (bool floating : {false, true}) {
+        for (bool layoutHandled : {false, true}) {
+            CALL_SUBTEST(fullscreenSurvivesMaximizeRequests, true, floating, layoutHandled);
+        }
+    }
+}
+
+TEST_CASE(windowedMaximizeRequestsStillToggle) {
+    std::optional<CFsMonClient> client;
+    try {
+        client.emplace();
+    } catch (...) { FAIL_TEST("Failed to start fullscreen-with-monitor client"); }
+
+    for (bool maximized : {true, false, true, false}) {
+        EXPECT(client->requestMaximize(maximized), true);
+        const auto WINDOW = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(WINDOW, std::format("fullscreen: {}", maximized ? 1 : 0));
+        EXPECT_CONTAINS(WINDOW, std::format("fullscreenClient: {}", maximized ? 1 : 0));
     }
 }

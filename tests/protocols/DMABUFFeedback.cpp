@@ -256,6 +256,13 @@ class CDMABUFFeedbackTest : public CDMABUFFormatTableTest {
         ASSERT_EQ(wl_event_loop_dispatch(g_pCompositor->m_wlEventLoop, 0), 0);
     }
 
+    void setFormats(std::vector<SDRMFormat> renderer, std::vector<SDRMFormat> monitor) {
+        auto& table                                     = PROTO::linuxDma->m_formatTable;
+        table->m_rendererTranche.formats                = std::move(renderer);
+        table->m_monitorTranches.front().second.formats = std::move(monitor);
+        rebuild();
+    }
+
     void rebuild() {
         PROTO::linuxDma->resetFormatTable();
     }
@@ -506,6 +513,58 @@ TEST_F(CDMABUFConfigFeedbackTest, RuntimeConfigRefreshesBothDirectionsAndSkipsUn
         readFeedback();
         expectFeedback(fresh, filtered);
     }
+}
+
+TEST_F(CDMABUFConfigFeedbackTest, YUVRendererFeedbackSurvivesFilterReplacementWithoutYUVScanout) {
+    constexpr uint64_t amdTiled = 0x0200000028a01f04;
+    setFormats(
+        {
+            {DRM_FORMAT_NV12, {amdTiled}},
+            {DRM_FORMAT_P010, {DRM_FORMAT_MOD_LINEAR}},
+            {DRM_FORMAT_XRGB8888, {I915_FORMAT_MOD_X_TILED}},
+        },
+        {
+            {DRM_FORMAT_NV12, {amdTiled}},
+            {DRM_FORMAT_P010, {amdTiled}},
+            {DRM_FORMAT_XRGB8888, {I915_FORMAT_MOD_X_TILED}},
+        });
+    makeWindow();
+    uint32_t defaultFeedback = 0, surfaceFeedback = 0;
+    bindFeedback(defaultFeedback);
+    bindFeedback(surfaceFeedback, true);
+    PROTO::linuxDma->updateScanoutTranche(m_surface, m_monitor);
+    readFeedback();
+
+    const auto expectYUVFeedback = [this, amdTiled](uint32_t id, bool filtered, bool scanout) {
+        TFeedbackFormats renderer{{DRM_FORMAT_NV12, amdTiled}};
+        if (!filtered)
+            renderer.emplace_back(DRM_FORMAT_P010, DRM_FORMAT_MOD_LINEAR);
+        renderer.emplace_back(DRM_FORMAT_XRGB8888, I915_FORMAT_MOD_X_TILED);
+        std::vector<SFeedbackTranche> expected;
+        if (scanout)
+            expected.push_back({ZWP_LINUX_DMABUF_FEEDBACK_V1_TRANCHE_FLAGS_SCANOUT, {{DRM_FORMAT_XRGB8888, I915_FORMAT_MOD_X_TILED}}});
+        expected.push_back({0, renderer});
+        EXPECT_EQ(m_feedback.at(id).tranches, expected);
+        EXPECT_EQ(m_feedback.at(id).table.size(), renderer.size());
+    };
+    expectYUVFeedback(defaultFeedback, false, false);
+    expectYUVFeedback(surfaceFeedback, false, true);
+
+    for (const bool filtered : {true, false}) {
+        setRuntimeFiltering(filtered);
+        dispatchRefresh();
+        expectYUVFeedback(defaultFeedback, filtered, false);
+        expectYUVFeedback(surfaceFeedback, filtered, true);
+        uint32_t fresh = 0;
+        bindFeedback(fresh);
+        readFeedback();
+        expectYUVFeedback(fresh, filtered, false);
+        EXPECT_EQ(m_feedback.at(defaultFeedback).tranches, m_feedback.at(fresh).tranches);
+    }
+    EXPECT_EQ(m_feedback.at(defaultFeedback).tableEvents, 3U);
+    EXPECT_EQ(m_feedback.at(defaultFeedback).doneEvents, 3U);
+    EXPECT_EQ(m_feedback.at(surfaceFeedback).tableEvents, 3U);
+    EXPECT_EQ(m_feedback.at(surfaceFeedback).doneEvents, 4U);
 }
 
 TEST_F(CDMABUFConfigFeedbackTest, FirstReloadPropertyRefreshAppliesChangedSetting) {
