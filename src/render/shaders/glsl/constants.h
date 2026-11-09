@@ -22,10 +22,12 @@
 #define SRGB_SCALE 12.92
 #define SRGB_ALPHA 1.055
 
-#define BT1886_POW   (1.0 / 0.45)
-#define BT1886_CUT   0.018053968510807
-#define BT1886_SCALE 4.5
-#define BT1886_ALPHA (1.0 + 5.5 * BT1886_CUT)
+#define BT1886_POW 2.4
+
+#define XVYCC_POW   (1.0 / 0.45)
+#define XVYCC_CUT   0.018053968510807
+#define XVYCC_SCALE 4.5
+#define XVYCC_ALPHA (1.0 + 5.5 * XVYCC_CUT)
 
 // See http://car.france3.mars.free.fr/HD/INA-%2026%20jan%2006/SMPTE%20normes%20et%20confs/s240m.pdf
 #define ST240_POW   (1.0 / 0.45)

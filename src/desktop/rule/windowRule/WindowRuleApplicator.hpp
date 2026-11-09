@@ -23,6 +23,8 @@ namespace Desktop::Rule {
     };
 
     class CWindowRuleApplicator {
+        friend class CWindowRuleApplicatorTest;
+
       public:
         CWindowRuleApplicator(PHLWINDOW w);
         ~CWindowRuleApplicator() = default;
@@ -122,6 +124,7 @@ namespace Desktop::Rule {
         DEFINE_PROP(bool, confinePointer, false, WINDOW_RULE_EFFECT_CONFINE_POINTER)
         DEFINE_PROP(bool, noXdgDrags, false, WINDOW_RULE_EFFECT_NO_XDG_DRAGS)
 
+        DEFINE_PROP(int, hdrReferenceLuminance, 0, WINDOW_RULE_EFFECT_HDR_REFERENCE_LUMINANCE)
         DEFINE_PROP(int, idleInhibitMode, false, WINDOW_RULE_EFFECT_IDLE_INHIBIT)
 
         DEFINE_PROP(Config::INTEGER, borderSize, {std::string("general:border_size") COMMA sc<Config::INTEGER>(0) COMMA std::nullopt}, WINDOW_RULE_EFFECT_BORDER_SIZE)
@@ -147,6 +150,9 @@ namespace Desktop::Rule {
 #undef DEFINE_PROP
 
       private:
+        static void resetHdrReferenceLuminanceProp(std::pair<Types::COverridableVar<int>, std::underlying_type_t<eRuleProperty>>& prop, std::underlying_type_t<eRuleProperty> props,
+                                                   Types::eOverridePriority prio, std::unordered_set<CWindowRuleEffectContainer::storageType>& effectsNuked);
+
         PHLWINDOWREF                          m_window;
         std::vector<SP<CWindowRule>>          m_execRules;
         std::underlying_type_t<eRuleProperty> propsToRecheck = RULE_PROP_NONE;

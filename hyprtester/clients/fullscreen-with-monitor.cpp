@@ -171,8 +171,17 @@ static void handleCmd(SState& s, std::string_view cmd) {
     } else if (cmd.starts_with("fullscreen")) {
         s.toplevel->sendSetFullscreen(s.output->resource());
         wl_display_flush(s.display);
+    } else if (cmd.starts_with("maximize") || cmd.starts_with("unmaximize")) {
+        if (cmd.starts_with("unmaximize"))
+            s.toplevel->sendUnsetMaximized();
+        else
+            s.toplevel->sendSetMaximized();
+
+        const bool SYNCED = wl_display_roundtrip(s.display) >= 0 && wl_display_roundtrip(s.display) >= 0;
+        clientLog("{}", SYNCED ? "maximized" : "failed");
     } else if (cmd.starts_with("get")) {
-        clientLog("{}", s.fullscreen ? "1" : "0");
+        const bool SYNCED = wl_display_roundtrip(s.display) >= 0 && wl_display_roundtrip(s.display) >= 0;
+        clientLog("{}", SYNCED ? (s.fullscreen ? "1" : "0") : "failed");
     } else if (cmd.starts_with("exit")) {
         shouldExit = true;
     }

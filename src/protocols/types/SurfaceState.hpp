@@ -2,6 +2,7 @@
 
 #include "../../helpers/math/Math.hpp"
 #include "../../helpers/time/Time.hpp"
+#include "../../helpers/cm/ColorRepresentation.hpp"
 #include "../../managers/eventLoop/EventLoopTimer.hpp"
 #include "../WaylandProtocol.hpp"
 #include "./Buffer.hpp"
@@ -67,11 +68,14 @@ struct SSurfaceState {
             bool dndIcon : 1;
             bool cursor : 1;
             bool xwayland : 1;
+            bool colorRepresentation : 1;
             bool xdgPopup : 1;
         } bits;
     } updated;
 
-    bool rejected = false;
+    NColorManagement::SColorRepresentation colorRepresentation;
+
+    bool                                   rejected = false;
 
     // initial values, copied from protocol text
     CHLBufferReference  buffer = {};                                  // The initial surface contents are void

@@ -76,6 +76,31 @@ TEST_CASE(monocleWorkspaceRule) {
     }
 }
 
+TEST_CASE(monocleCycleRetainsFullscreen) {
+    OK(getFromSocket("/eval hl.config({ general = { layout = 'monocle' }, misc = { on_focus_under_fullscreen = 2 } })"));
+
+    SPAWN_KITTY("monocle_cycle_A");
+    SPAWN_KITTY("monocle_cycle_B");
+
+    OK(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:monocle_cycle_A' })"));
+    OK(getFromSocket("/dispatch hl.dsp.window.fullscreen_state({ internal = 2, client = 0, action = 'set' })"));
+    OK(getFromSocket("/dispatch hl.dsp.layout('cyclenext')"));
+
+    {
+        const auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "class: monocle_cycle_B");
+        EXPECT_CONTAINS(str, "fullscreen: 2");
+    }
+
+    OK(getFromSocket("/dispatch hl.dsp.layout('cycleprev')"));
+
+    {
+        const auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "class: monocle_cycle_A");
+        EXPECT_CONTAINS(str, "fullscreen: 2");
+    }
+}
+
 /*
     Fullscreen Tests
 
